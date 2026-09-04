@@ -1,4 +1,4 @@
-# AI-native SlackBot コミュニケーション基盤 (MVP)
+# Roomi
 
 Slackを主戦場、WebをControl Centerにする「必要な瞬間に不足を埋めるAI」。
 
