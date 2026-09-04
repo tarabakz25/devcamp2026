@@ -1,0 +1,190 @@
+:root {
+  --color-primary: #5b6cff;
+  --color-secondary: #6ed8c3;
+  --color-accent: #ff8f7a;
+  --color-background: #f8f9fc;
+  --color-surface: #eef2f7;
+  --color-text: #253047;
+  --color-text-muted: #5d6b89;
+  --color-border: #dde4ef;
+  --color-card: #ffffff;
+
+  --font-display: "Poppins", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 40px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.roomi-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) var(--space-8);
+}
+
+.roomi-hero {
+  background: linear-gradient(135deg, var(--color-primary), #7c8bff);
+  color: #fff;
+  border-radius: var(--radius-2xl);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.roomi-hero h1 {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 40px;
+  margin: 0 0 var(--space-2);
+  font-weight: 600;
+}
+
+.roomi-hero p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  opacity: 0.9;
+}
+
+.roomi-badge {
+  display: inline-block;
+  font-size: 12px;
+  line-height: 16px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.roomi-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.roomi-card h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 28px;
+  margin: 0 0 var(--space-3);
+  font-weight: 600;
+}
+
+.roomi-card h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.roomi-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.roomi-input {
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.roomi-button {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+}
+
+.roomi-button:hover {
+  filter: brightness(0.95);
+}
+
+.roomi-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.roomi-item {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.roomi-item-meta {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.roomi-pill {
+  display: inline-block;
+  font-size: 12px;
+  line-height: 16px;
+  border-radius: 999px;
+  padding: 2px 10px;
+  margin-right: var(--space-2);
+  background: var(--color-secondary);
+  color: #123;
+}
+
+.roomi-pill.warn {
+  background: var(--color-accent);
+  color: #43130a;
+}
+
+.roomi-note {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-text-muted);
+}
+
+.roomi-empty {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  background: var(--color-background);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+}
