@@ -1,0 +1,47 @@
+{
+  "display_information": {
+    "name": "AI-native Communication Agent (MVP)",
+    "description": "組織の会話を常時理解し、必要な人・情報・過去の文脈を一歩前に持ってくるAI",
+    "background_color": "#1f3a93"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "comms-agent",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "channels:history",
+        "channels:read",
+        "channels:join",
+        "groups:history",
+        "im:history",
+        "mpim:history",
+        "reactions:read",
+        "users:read",
+        "chat:write"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://example.com/slack/events",
+      "bot_events": [
+        "app_mention",
+        "message.channels",
+        "message.groups",
+        "message.im",
+        "reaction_added"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": false
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": true,
+    "token_rotation_enabled": false
+  }
+}
