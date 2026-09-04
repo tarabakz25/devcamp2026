@@ -1,13 +1,15 @@
 :root {
-  --color-primary: #5b6cff;
+  --color-primary: #7b88ff;
   --color-secondary: #6ed8c3;
   --color-accent: #ff8f7a;
-  --color-background: #f8f9fc;
-  --color-surface: #eef2f7;
-  --color-text: #253047;
-  --color-text-muted: #5d6b89;
-  --color-border: #dde4ef;
-  --color-card: #ffffff;
+  --color-background: #0b0f18;
+  --color-workspace: #151b29;
+  --color-sidebar: #0f1420;
+  --color-panel: #1a2132;
+  --color-panel-hover: #222b40;
+  --color-text: #f1f4fb;
+  --color-text-muted: #929db3;
+  --color-border: #2a3349;
 
   --font-display: "Poppins", "Inter", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
@@ -18,18 +20,20 @@
   --space-4: 24px;
   --space-5: 32px;
   --space-6: 40px;
-  --space-7: 48px;
-  --space-8: 64px;
 
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 24px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
@@ -41,150 +45,968 @@ body {
   line-height: 24px;
 }
 
-.roomi-shell {
-  max-width: 960px;
+button,
+input {
+  font: inherit;
+}
+
+.roomi-app-shell {
+  min-height: 100dvh;
+  padding: 0 var(--space-4) var(--space-4);
+  overflow: hidden;
+}
+
+.roomi-app-header {
+  display: flex;
+  height: 72px;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: var(--space-5) var(--space-4) var(--space-8);
+  align-items: center;
+  justify-content: space-between;
 }
 
-.roomi-hero {
-  background: linear-gradient(135deg, var(--color-primary), #7c8bff);
+.roomi-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.roomi-brand-mark {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--color-primary);
   color: #fff;
-  border-radius: var(--radius-2xl);
-  padding: var(--space-5);
-  margin-bottom: var(--space-5);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  box-shadow: 0 0 24px rgba(123, 136, 255, 0.28);
 }
 
-.roomi-hero h1 {
+.roomi-brand div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.roomi-brand div > span {
   font-family: var(--font-display);
-  font-size: 32px;
-  line-height: 40px;
-  margin: 0 0 var(--space-2);
+  font-size: 18px;
   font-weight: 600;
 }
 
-.roomi-hero p {
+.roomi-brand h1 {
   margin: 0;
-  font-size: 14px;
-  line-height: 20px;
-  opacity: 0.9;
-}
-
-.roomi-badge {
-  display: inline-block;
+  color: var(--color-text-muted);
   font-size: 12px;
-  line-height: 16px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  padding: var(--space-1) var(--space-3);
-  margin-bottom: var(--space-3);
+  font-weight: 400;
+  letter-spacing: 0.04em;
 }
 
-.roomi-card {
-  background: var(--color-card);
+.roomi-live-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.roomi-live-status > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-secondary);
+  box-shadow: 0 0 12px rgba(110, 216, 195, 0.8);
+}
+
+.roomi-live-status.mock > span {
+  background: var(--color-primary);
+  box-shadow: 0 0 12px rgba(123, 136, 255, 0.8);
+}
+
+.roomi-workspace {
+  position: relative;
+  height: calc(100dvh - 96px);
+  min-height: 620px;
+  max-width: 1600px;
+  margin: 0 auto;
+  overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
+  background-color: var(--color-workspace);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
 }
 
-.roomi-card h2 {
+.roomi-sidebar {
+  position: absolute;
+  z-index: 4;
+  top: var(--space-6);
+  bottom: var(--space-6);
+  left: var(--space-6);
+  width: 292px;
+  padding: var(--space-4);
+  overflow: auto;
+  border: 1px solid rgba(130, 145, 181, 0.18);
+  border-radius: var(--radius-lg);
+  background: rgba(12, 17, 28, 0.96);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
+  scrollbar-color: var(--color-border) transparent;
+  scrollbar-width: thin;
+}
+
+.roomi-sidebar-heading {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.roomi-kicker,
+.roomi-sidebar-label {
+  display: block;
+  color: var(--color-primary);
   font-family: var(--font-display);
-  font-size: 20px;
-  line-height: 28px;
-  margin: 0 0 var(--space-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+.roomi-sidebar-heading h2,
+.roomi-stage-header h2,
+.roomi-stage-empty h2 {
+  font-family: var(--font-display);
   font-weight: 600;
 }
 
-.roomi-card h3 {
-  font-family: var(--font-display);
-  font-size: 16px;
-  margin: var(--space-4) 0 var(--space-2);
+.roomi-sidebar-heading h2 {
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: 20px;
+  line-height: 28px;
 }
 
-.roomi-row {
+.roomi-sidebar-heading p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.roomi-topic-form {
+  margin-top: var(--space-4);
+}
+
+.roomi-topic-form label {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.roomi-topic-form > div {
   display: flex;
   gap: var(--space-2);
 }
 
+.roomi-data-mode {
+  display: flex;
+  margin-top: 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.roomi-data-mode > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+.roomi-data-mode i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-secondary);
+}
+
+.roomi-data-mode .mock i {
+  background: var(--color-primary);
+}
+
+.roomi-data-mode button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #aeb7ca;
+  font-size: 10px;
+  line-height: 16px;
+  text-decoration: underline;
+  text-decoration-color: #505c76;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.roomi-data-mode button:hover {
+  color: #fff;
+}
+
 .roomi-input {
+  min-width: 0;
   flex: 1;
-  font-family: var(--font-body);
-  font-size: 14px;
-  padding: var(--space-2) var(--space-3);
+  padding: 9px 11px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-background);
+  outline: 0;
+  background: var(--color-panel);
   color: var(--color-text);
+  font-size: 13px;
+}
+
+.roomi-input::placeholder {
+  color: #68748b;
 }
 
 .roomi-button {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 14px;
+  padding: 9px 13px;
+  border: 0;
+  border-radius: var(--radius-md);
   background: var(--color-primary);
   color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .roomi-button:hover {
-  filter: brightness(0.95);
+  filter: brightness(1.08);
 }
 
-.roomi-list {
-  list-style: none;
+.roomi-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.roomi-input:focus-visible,
+.roomi-button:focus-visible,
+.topic-graph-node:focus-visible,
+.topic-graph-controls button:focus-visible,
+.roomi-disclosure summary:focus-visible {
+  outline: 3px solid rgba(123, 136, 255, 0.5);
+  outline-offset: 2px;
+}
+
+.roomi-error {
+  margin: var(--space-2) 0 0;
+  color: #ffb4a8;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.roomi-sidebar-block {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+}
+
+.roomi-sidebar-block h3 {
+  display: -webkit-box;
+  margin: var(--space-1) 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.roomi-thread-id {
+  color: var(--color-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+.roomi-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-1);
   margin: var(--space-3) 0 0;
-  padding: 0;
+}
+
+.roomi-stats div {
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: rgba(9, 13, 22, 0.58);
+  text-align: center;
+}
+
+.roomi-stats dt,
+.roomi-selection dt {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.roomi-stats dd {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.roomi-selection {
+  border-color: rgba(123, 136, 255, 0.34);
+  background: linear-gradient(145deg, rgba(123, 136, 255, 0.13), var(--color-panel));
+}
+
+.roomi-selection dl {
+  margin: var(--space-3) 0 0;
+}
+
+.roomi-selection dl div {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.roomi-selection dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.roomi-disclosure {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.roomi-disclosure summary {
   display: flex;
-  flex-direction: column;
+  padding: var(--space-3) 0 var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  color: #cad1e1;
+  font-size: 12px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+
+.roomi-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.roomi-disclosure summary span {
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-panel);
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.roomi-disclosure ol,
+.roomi-disclosure ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roomi-disclosure ol {
+  max-height: 220px;
+  overflow: auto;
+  padding-right: var(--space-1);
+  scrollbar-color: var(--color-border) transparent;
+  scrollbar-width: thin;
+}
+
+.roomi-disclosure li {
+  padding: var(--space-2) 0;
+  border-top: 1px solid rgba(42, 51, 73, 0.72);
+  color: #c0c8da;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.roomi-disclosure li > span,
+.roomi-disclosure li > strong {
+  display: block;
+  color: var(--color-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.roomi-disclosure p,
+.roomi-sidebar-placeholder p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.roomi-sidebar-placeholder {
+  display: grid;
+  min-height: 230px;
+  place-items: center;
+  align-content: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.roomi-sidebar-placeholder > span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  color: var(--color-primary);
+}
+
+.roomi-graph-stage {
+  --graph-grid-size: 24px;
+  --graph-grid-x: 1px;
+  --graph-grid-y: 1px;
+
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.roomi-graph-stage::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background-image: radial-gradient(
+    circle,
+    rgba(122, 135, 166, 0.34) 1.15px,
+    transparent 1.3px
+  );
+  background-position: var(--graph-grid-x) var(--graph-grid-y);
+  background-size: var(--graph-grid-size) var(--graph-grid-size);
+  content: "";
+  pointer-events: none;
+}
+
+.roomi-stage-header {
+  position: absolute;
+  z-index: 2;
+  top: var(--space-5);
+  right: var(--space-5);
+  left: 372px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  pointer-events: none;
+}
+
+.roomi-stage-header h2 {
+  max-width: 680px;
+  margin: var(--space-1) 0 0;
+  overflow: hidden;
+  color: #f4f6fb;
+  font-size: 18px;
+  line-height: 26px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roomi-stage-count {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: rgba(15, 20, 32, 0.82);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.roomi-stage-meta {
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
 }
 
-.roomi-item {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.roomi-item-meta {
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-1);
-}
-
-.roomi-pill {
-  display: inline-block;
-  font-size: 12px;
-  line-height: 16px;
+.roomi-mock-pill {
+  padding: 6px 10px;
+  border: 1px solid rgba(123, 136, 255, 0.38);
   border-radius: 999px;
-  padding: 2px 10px;
-  margin-right: var(--space-2);
+  background: rgba(123, 136, 255, 0.14);
+  color: #b7beff;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+.topic-graph-canvas {
+  position: absolute;
+  z-index: 1;
+  inset: 80px 0 46px 344px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.topic-graph-canvas svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.topic-graph-canvas svg:active {
+  cursor: grabbing;
+}
+
+.topic-graph-controls {
+  position: absolute;
+  z-index: 2;
+  right: var(--space-5);
+  bottom: var(--space-2);
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(15, 20, 32, 0.9);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+}
+
+.topic-graph-controls button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  font: 600 17px/1 var(--font-display);
+  cursor: pointer;
+}
+
+.topic-graph-controls button:first-child {
+  border-left: 0;
+}
+
+.topic-graph-controls button:hover {
+  background: var(--color-panel-hover);
+}
+
+.topic-graph-help {
+  position: absolute;
+  right: 150px;
+  bottom: 16px;
+  color: #758097;
+  font-size: 10px;
+  line-height: 16px;
+  pointer-events: none;
+}
+
+.topic-graph-link {
+  stroke: #778096;
+  stroke-opacity: 0.48;
+}
+
+.topic-graph-link.conversation {
+  stroke: var(--color-secondary);
+  stroke-opacity: 0.74;
+}
+
+.topic-graph-link.conversation.status-discussion {
+  stroke: #8f9aff;
+}
+
+.topic-graph-link.conversation.status-review {
+  stroke: #f3b65f;
+}
+
+.topic-graph-link.conversation.status-resolved {
+  stroke: #6ed8c3;
+}
+
+.topic-graph-link.conversation.status-blocked {
+  stroke: #ff8f7a;
+  stroke-dasharray: 7 6;
+}
+
+.topic-graph-link-label {
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--color-workspace);
+  stroke-linejoin: round;
+  stroke-width: 5px;
+}
+
+.topic-graph-link-label.status-discussion {
+  fill: #b6bdff;
+}
+
+.topic-graph-link-label.status-review {
+  fill: #ffd28d;
+}
+
+.topic-graph-link-label.status-resolved {
+  fill: #9ce8d9;
+}
+
+.topic-graph-link-label.status-blocked {
+  fill: #ffb7a9;
+}
+
+.topic-graph-node {
+  cursor: pointer;
+}
+
+.topic-graph-circle {
+  fill: #e8ebf2;
+  stroke: #e8ebf2;
+  stroke-width: 3px;
+  transition: filter 160ms ease, stroke 160ms ease, stroke-width 160ms ease;
+}
+
+.topic-graph-circle.topic {
+  fill: var(--color-primary);
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 4px;
+}
+
+.topic-graph-node:hover .topic-graph-circle,
+.topic-graph-node:focus-visible .topic-graph-circle,
+.topic-graph-node.selected .topic-graph-circle {
+  filter: drop-shadow(0 0 12px rgba(123, 136, 255, 0.42));
+  stroke: var(--color-secondary);
+  stroke-width: 5px;
+}
+
+.topic-graph-label,
+.topic-graph-count {
+  fill: #dfe4ef;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--color-workspace);
+  stroke-linejoin: round;
+  stroke-width: 5px;
+}
+
+.topic-graph-count {
+  fill: #1a2030;
+  stroke: none;
+}
+
+.topic-graph-node.topic .topic-graph-count {
+  fill: #fff;
+}
+
+.topic-graph-empty,
+.roomi-stage-empty {
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.topic-graph-empty {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  font-size: 13px;
+}
+
+.roomi-stage-empty {
+  position: absolute;
+  inset: 0 0 0 344px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+}
+
+.roomi-stage-empty h2 {
+  margin: var(--space-4) 0 var(--space-1);
+  color: #d9deea;
+  font-size: 16px;
+}
+
+.roomi-stage-empty p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.roomi-empty-orbit {
+  position: relative;
+  width: 150px;
+  height: 108px;
+}
+
+.roomi-empty-orbit::before,
+.roomi-empty-orbit::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 92px;
+  height: 1px;
+  background: #444e65;
+  content: "";
+  transform-origin: left center;
+}
+
+.roomi-empty-orbit::before {
+  transform: rotate(28deg);
+}
+
+.roomi-empty-orbit::after {
+  transform: rotate(152deg);
+}
+
+.roomi-empty-orbit span {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #566078;
+  border-radius: 50%;
+  background: var(--color-workspace);
+}
+
+.roomi-empty-orbit span:first-child {
+  top: 42px;
+  left: 63px;
+  width: 30px;
+  height: 30px;
+  border-color: var(--color-primary);
+}
+
+.roomi-empty-orbit span:nth-child(2) {
+  top: 4px;
+  right: 5px;
+}
+
+.roomi-empty-orbit span:nth-child(3) {
+  bottom: 0;
+  right: 12px;
+}
+
+.roomi-empty-orbit span:nth-child(4) {
+  top: 19px;
+  left: 0;
+}
+
+.roomi-legend {
+  position: absolute;
+  z-index: 2;
+  bottom: var(--space-4);
+  left: 372px;
+  display: flex;
+  gap: var(--space-3);
+  color: #78839a;
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.roomi-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.roomi-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e8ebf2;
+}
+
+.roomi-legend i.topic {
+  background: var(--color-primary);
+}
+
+.roomi-legend i.relation {
+  position: relative;
+  width: 18px;
+  height: 2px;
+  border-radius: 0;
   background: var(--color-secondary);
-  color: #123;
 }
 
-.roomi-pill.warn {
-  background: var(--color-accent);
-  color: #43130a;
+.roomi-legend i.relation::after {
+  position: absolute;
+  top: -3px;
+  right: -1px;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid currentColor;
+  content: "";
 }
 
-.roomi-note {
-  font-size: 14px;
-  line-height: 20px;
-  color: var(--color-text-muted);
+.roomi-legend i.discussion {
+  background: #8f9aff;
+  color: #8f9aff;
 }
 
-.roomi-empty {
-  font-size: 14px;
-  color: var(--color-text-muted);
-  background: var(--color-background);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
+.roomi-legend i.review {
+  background: #f3b65f;
+  color: #f3b65f;
+}
+
+.roomi-legend i.resolved {
+  background: #6ed8c3;
+  color: #6ed8c3;
+}
+
+.roomi-legend i.blocked {
+  background: repeating-linear-gradient(
+    90deg,
+    #ff8f7a 0 4px,
+    transparent 4px 7px
+  );
+  color: #ff8f7a;
+}
+
+.roomi-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 800px) {
+  .roomi-app-shell {
+    padding: 0;
+    overflow: visible;
+  }
+
+  .roomi-app-header {
+    height: 64px;
+    padding: 0 var(--space-3);
+  }
+
+  .roomi-live-status {
+    display: none;
+  }
+
+  .roomi-workspace {
+    height: auto;
+    min-height: calc(100dvh - 64px);
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .roomi-sidebar {
+    position: relative;
+    inset: auto;
+    width: auto;
+    max-height: 330px;
+    margin: var(--space-3);
+    overflow: auto;
+  }
+
+  .roomi-graph-stage {
+    position: relative;
+    min-height: 610px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .roomi-stage-header {
+    top: var(--space-4);
+    right: var(--space-3);
+    left: var(--space-3);
+  }
+
+  .roomi-stage-header h2 {
+    max-width: 230px;
+    font-size: 15px;
+  }
+
+  .roomi-stage-count {
+    display: none;
+  }
+
+  .roomi-mock-pill {
+    padding: 4px 8px;
+  }
+
+  .topic-graph-canvas {
+    inset: 82px 0 48px;
+  }
+
+  .roomi-stage-empty {
+    inset: 0;
+  }
+
+  .roomi-legend {
+    right: var(--space-3);
+    bottom: var(--space-3);
+    left: var(--space-3);
+    justify-content: center;
+  }
+
+  .topic-graph-controls {
+    right: var(--space-3);
+  }
+
+  .topic-graph-help {
+    display: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .roomi-brand div {
+    display: block;
+  }
+
+  .roomi-brand h1 {
+    line-height: 14px;
+  }
+
+  .roomi-sidebar {
+    padding: 20px;
+  }
+
+  .roomi-stage-header {
+    right: 20px;
+    left: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-graph-circle {
+    transition: none;
+  }
 }
