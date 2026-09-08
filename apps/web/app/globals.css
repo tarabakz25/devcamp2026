@@ -1,18 +1,20 @@
 :root {
   --color-primary: #7b88ff;
+  --color-primary-rgb: 123, 136, 255;
   --color-secondary: #6ed8c3;
   --color-accent: #ff8f7a;
-  --color-background: #0b0f18;
-  --color-workspace: #151b29;
-  --color-sidebar: #0f1420;
-  --color-panel: #1a2132;
-  --color-panel-hover: #222b40;
+  --color-background: #090d16;
+  --color-sidebar: #0f1523;
+  --color-sidebar-sub: #141b2d;
+  --color-workspace: #0d121f;
+  --color-panel: #161e31;
+  --color-panel-hover: #1f2a44;
   --color-text: #f1f4fb;
-  --color-text-muted: #929db3;
-  --color-border: #2a3349;
+  --color-text-muted: #8895ad;
+  --color-border: #232c42;
 
-  --font-display: "Poppins", "Inter", system-ui, sans-serif;
-  --font-body: "Inter", system-ui, sans-serif;
+  --font-display: "Poppins", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -23,8 +25,8 @@
 
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
 }
 
 * {
@@ -33,16 +35,20 @@
 
 html,
 body {
-  min-height: 100%;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 body {
-  margin: 0;
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-body);
-  font-size: 16px;
-  line-height: 24px;
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -50,438 +56,539 @@ input {
   font: inherit;
 }
 
+/* ==========================================================================
+   App Shell (ヘッダー削除、全画面フルフィールド + フローティングBoxサイドバー)
+   ========================================================================== */
 .roomi-app-shell {
-  min-height: 100dvh;
-  padding: 0 var(--space-4) var(--space-4);
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--color-background);
+}
+
+/* ==========================================================================
+   Sidebar: Boxデザイン(フィールド上Popupとしてフロート表示)
+   ========================================================================== */
+.roomi-sidebar-nav {
+  position: absolute;
+  z-index: 20;
+  top: 24px;
+  bottom: 24px;
+  left: 24px;
+  width: 310px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(13, 18, 30, 0.94);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(130, 145, 181, 0.2);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(123, 136, 255, 0.08);
   overflow: hidden;
 }
 
-.roomi-app-header {
-  display: flex;
-  height: 72px;
-  max-width: 1600px;
-  margin: 0 auto;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.roomi-brand {
+/* 上部: Workspace名 */
+.roomi-workspace-header {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(15, 21, 35, 0.92);
 }
 
-.roomi-brand-mark {
+.roomi-workspace-logo {
   display: grid;
   width: 36px;
   height: 36px;
   place-items: center;
-  border-radius: 11px;
-  background: var(--color-primary);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #7b88ff 0%, #5664ec 100%);
   color: #fff;
   font-family: var(--font-display);
   font-size: 17px;
-  font-weight: 600;
-  box-shadow: 0 0 24px rgba(123, 136, 255, 0.28);
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(123, 136, 255, 0.35);
+  flex-shrink: 0;
 }
 
-.roomi-brand div {
+.roomi-workspace-info {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.roomi-brand div > span {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.roomi-brand h1 {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-}
-
-.roomi-live-status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
-  font-size: 12px;
-}
-
-.roomi-live-status > span {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--color-secondary);
-  box-shadow: 0 0 12px rgba(110, 216, 195, 0.8);
-}
-
-.roomi-live-status.mock > span {
-  background: var(--color-primary);
-  box-shadow: 0 0 12px rgba(123, 136, 255, 0.8);
-}
-
-.roomi-workspace {
-  position: relative;
-  height: calc(100dvh - 96px);
-  min-height: 620px;
-  max-width: 1600px;
-  margin: 0 auto;
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background-color: var(--color-workspace);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
 }
 
-.roomi-sidebar {
-  position: absolute;
-  z-index: 4;
-  top: var(--space-6);
-  bottom: var(--space-6);
-  left: var(--space-6);
-  width: 292px;
-  padding: var(--space-4);
-  overflow: auto;
-  border: 1px solid rgba(130, 145, 181, 0.18);
-  border-radius: var(--radius-lg);
-  background: rgba(12, 17, 28, 0.96);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
-  scrollbar-color: var(--color-border) transparent;
-  scrollbar-width: thin;
+.roomi-workspace-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.roomi-sidebar-heading {
-  padding-bottom: var(--space-4);
+.roomi-workspace-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* メニューアイテム (グラフ、メンバー、AI、アカウント) */
+.roomi-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 10px;
   border-bottom: 1px solid var(--color-border);
 }
 
-.roomi-kicker,
-.roomi-sidebar-label {
-  display: block;
-  color: var(--color-primary);
-  font-family: var(--font-display);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  line-height: 16px;
-  text-transform: uppercase;
-}
-
-.roomi-sidebar-heading h2,
-.roomi-stage-header h2,
-.roomi-stage-empty h2 {
-  font-family: var(--font-display);
-  font-weight: 600;
-}
-
-.roomi-sidebar-heading h2 {
-  margin: var(--space-1) 0 var(--space-2);
-  font-size: 20px;
-  line-height: 28px;
-}
-
-.roomi-sidebar-heading p {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.roomi-topic-form {
-  margin-top: var(--space-4);
-}
-
-.roomi-topic-form label {
-  display: block;
-  margin-bottom: var(--space-2);
-  color: var(--color-text-muted);
-  font-size: 11px;
-  line-height: 16px;
-}
-
-.roomi-topic-form > div {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.roomi-data-mode {
-  display: flex;
-  margin-top: 10px;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.roomi-data-mode > span {
+.roomi-menu-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: var(--color-text-muted);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  line-height: 16px;
-  text-transform: uppercase;
-}
-
-.roomi-data-mode i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-secondary);
-}
-
-.roomi-data-mode .mock i {
-  background: var(--color-primary);
-}
-
-.roomi-data-mode button {
-  padding: 0;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
   border: 0;
+  border-radius: var(--radius-md);
   background: transparent;
-  color: #aeb7ca;
-  font-size: 10px;
-  line-height: 16px;
-  text-decoration: underline;
-  text-decoration-color: #505c76;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.roomi-data-mode button:hover {
-  color: #fff;
-}
-
-.roomi-input {
-  min-width: 0;
-  flex: 1;
-  padding: 9px 11px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  outline: 0;
-  background: var(--color-panel);
-  color: var(--color-text);
+  color: #a2b0c9;
+  font-family: var(--font-display);
   font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 140ms ease;
 }
 
-.roomi-input::placeholder {
-  color: #68748b;
-}
-
-.roomi-button {
-  padding: 9px 13px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: var(--color-primary);
+.roomi-menu-item:hover {
+  background: rgba(123, 136, 255, 0.08);
   color: #fff;
-  font-family: var(--font-display);
-  font-size: 12px;
+}
+
+.roomi-menu-item.active {
+  background: rgba(123, 136, 255, 0.16);
+  color: #fff;
   font-weight: 600;
-  cursor: pointer;
 }
 
-.roomi-button:hover {
-  filter: brightness(1.08);
+.roomi-menu-icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
 }
 
-.roomi-button:disabled {
-  cursor: wait;
-  opacity: 0.6;
+.roomi-menu-item.active .roomi-menu-icon {
+  color: var(--color-primary);
 }
 
-.roomi-input:focus-visible,
-.roomi-button:focus-visible,
-.topic-graph-node:focus-visible,
-.topic-graph-controls button:focus-visible,
-.roomi-disclosure summary:focus-visible {
-  outline: 3px solid rgba(123, 136, 255, 0.5);
-  outline-offset: 2px;
+.roomi-menu-label {
+  flex: 1;
 }
 
-.roomi-error {
-  margin: var(--space-2) 0 0;
-  color: #ffb4a8;
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.roomi-sidebar-block {
-  margin-top: var(--space-4);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-panel);
-}
-
-.roomi-sidebar-block h3 {
-  display: -webkit-box;
-  margin: var(--space-1) 0;
-  overflow: hidden;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 20px;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.roomi-thread-id {
-  color: var(--color-text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
-}
-
-.roomi-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-1);
-  margin: var(--space-3) 0 0;
-}
-
-.roomi-stats div {
-  padding: var(--space-2);
-  border-radius: var(--radius-sm);
-  background: rgba(9, 13, 22, 0.58);
-  text-align: center;
-}
-
-.roomi-stats dt,
-.roomi-selection dt {
-  color: var(--color-text-muted);
-  font-size: 10px;
-  line-height: 14px;
-}
-
-.roomi-stats dd {
-  margin: 2px 0 0;
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 22px;
-}
-
-.roomi-selection {
-  border-color: rgba(123, 136, 255, 0.34);
-  background: linear-gradient(145deg, rgba(123, 136, 255, 0.13), var(--color-panel));
-}
-
-.roomi-selection dl {
-  margin: var(--space-3) 0 0;
-}
-
-.roomi-selection dl div {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  gap: var(--space-2);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--color-border);
-  font-size: 11px;
-  line-height: 17px;
-}
-
-.roomi-selection dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.roomi-disclosure {
-  margin-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
-}
-
-.roomi-disclosure summary {
-  display: flex;
-  padding: var(--space-3) 0 var(--space-2);
-  align-items: center;
-  justify-content: space-between;
-  color: #cad1e1;
-  font-size: 12px;
-  font-weight: 600;
-  list-style: none;
-  cursor: pointer;
-}
-
-.roomi-disclosure summary::-webkit-details-marker {
-  display: none;
-}
-
-.roomi-disclosure summary span {
-  display: grid;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  place-items: center;
+.roomi-menu-badge {
+  padding: 2px 7px;
   border-radius: 999px;
-  background: var(--color-panel);
-  color: var(--color-text-muted);
+  background: rgba(255, 255, 255, 0.08);
+  color: #9da9c0;
   font-size: 10px;
+  font-weight: 600;
 }
 
-.roomi-disclosure ol,
-.roomi-disclosure ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.roomi-menu-badge.ai {
+  background: rgba(123, 136, 255, 0.25);
+  color: #b3bdff;
 }
 
-.roomi-disclosure ol {
-  max-height: 220px;
-  overflow: auto;
-  padding-right: var(--space-1);
+/* サイドバー コンテンツ領域 (縦上限はサイドバーのサイズ) */
+.roomi-sidebar-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 14px 14px;
   scrollbar-color: var(--color-border) transparent;
   scrollbar-width: thin;
 }
 
-.roomi-disclosure li {
-  padding: var(--space-2) 0;
-  border-top: 1px solid rgba(42, 51, 73, 0.72);
-  color: #c0c8da;
-  font-size: 11px;
-  line-height: 17px;
-}
-
-.roomi-disclosure li > span,
-.roomi-disclosure li > strong {
+.roomi-pane-kicker {
   display: block;
-  color: var(--color-secondary);
-  font-size: 9px;
+  margin-bottom: 6px;
+  color: var(--color-primary);
+  font-family: var(--font-display);
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-.roomi-disclosure p,
-.roomi-sidebar-placeholder p {
-  margin: 0;
+.roomi-pane-hint {
+  margin: 0 0 12px;
   color: var(--color-text-muted);
   font-size: 11px;
-  line-height: 17px;
+  line-height: 16px;
 }
 
-.roomi-sidebar-placeholder {
-  display: grid;
-  min-height: 230px;
-  place-items: center;
-  align-content: center;
-  gap: var(--space-3);
-  text-align: center;
+/* グラフペイン (トピック概要 + タイムライン直接表示) */
+.roomi-pane-graph {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.roomi-sidebar-placeholder > span {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
+.roomi-topic-box {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
   border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.roomi-topic-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 18px;
+}
+
+.roomi-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.roomi-stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  background: rgba(9, 13, 22, 0.6);
+}
+
+.chip-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.chip-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e5ebfa;
+}
+
+/* タイムライン: Boxに入れずそのまま下に表示(縦上限はサイドバーのサイズ) */
+.roomi-timeline-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+
+.roomi-timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.roomi-timeline-header .roomi-pane-kicker {
+  margin-bottom: 0;
+}
+
+.count-tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.roomi-timeline-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 2px;
+  scrollbar-color: var(--color-border) transparent;
+  scrollbar-width: thin;
+}
+
+.roomi-timeline-item {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.roomi-timeline-item:last-child {
+  border-bottom: 0;
+}
+
+.timeline-item-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.timeline-item-meta .user-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-secondary);
+}
+
+.timeline-item-meta .timeline-ts {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.roomi-timeline-item .msg-text {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: #ccd5e5;
+}
+
+/* メンバーペイン */
+.roomi-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.roomi-member-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  text-align: left;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.roomi-member-card:hover {
+  background: var(--color-panel-hover);
+  border-color: rgba(123, 136, 255, 0.3);
+}
+
+.roomi-member-card.selected {
+  border-color: var(--color-primary);
+  background: rgba(123, 136, 255, 0.12);
+}
+
+.member-avatar {
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.member-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.member-count {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.member-role {
+  display: block;
+  font-size: 10px;
+  color: var(--color-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-interests {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* AIペイン */
+.roomi-audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.roomi-audit-card {
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+}
+
+.audit-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.audit-action-tag {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--color-primary);
 }
 
+.audit-conf {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.audit-reason {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: #c4cde0;
+}
+
+/* アカウントペイン */
+.account-profile-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.account-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 10px;
+}
+
+.account-name {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.account-role-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(123, 136, 255, 0.15);
+  color: var(--color-primary);
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+
+.account-email {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.account-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-panel);
+  font-size: 11px;
+}
+
+.detail-key {
+  color: var(--color-text-muted);
+}
+
+.detail-val {
+  color: #fff;
+  font-weight: 500;
+}
+
+.detail-val.status-online {
+  color: var(--color-secondary);
+}
+
+/* サイドバー下部 */
+.roomi-sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border);
+  background: rgba(15, 21, 35, 0.95);
+  flex-shrink: 0;
+}
+
+.roomi-footer-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.footer-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.footer-user-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.footer-user-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.footer-user-role {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+/* ==========================================================================
+   D3 フィールド: 画面にフルで表示させる (キャンバスが全画面を専有)
+   ========================================================================== */
 .roomi-graph-stage {
   --graph-grid-size: 24px;
   --graph-grid-x: 1px;
@@ -489,7 +596,10 @@ input {
 
   position: absolute;
   inset: 0;
+  width: 100vw;
+  height: 100dvh;
   overflow: hidden;
+  background-color: var(--color-workspace);
 }
 
 .roomi-graph-stage::before {
@@ -498,7 +608,7 @@ input {
   inset: 0;
   background-image: radial-gradient(
     circle,
-    rgba(122, 135, 166, 0.34) 1.15px,
+    rgba(122, 135, 166, 0.28) 1.15px,
     transparent 1.3px
   );
   background-position: var(--graph-grid-x) var(--graph-grid-y);
@@ -507,66 +617,76 @@ input {
   pointer-events: none;
 }
 
-.roomi-stage-header {
+/* 上部フロートトピックタイトル (サイドバーBoxの右側に配置) */
+.roomi-floating-header {
   position: absolute;
-  z-index: 2;
-  top: var(--space-5);
-  right: var(--space-5);
-  left: 372px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  pointer-events: none;
-}
-
-.roomi-stage-header h2 {
-  max-width: 680px;
-  margin: var(--space-1) 0 0;
-  overflow: hidden;
-  color: #f4f6fb;
-  font-size: 18px;
-  line-height: 26px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.roomi-stage-count {
-  padding: 6px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: rgba(15, 20, 32, 0.82);
-  color: var(--color-text-muted);
-  font-size: 10px;
-  line-height: 16px;
-}
-
-.roomi-stage-meta {
+  z-index: 10;
+  top: 24px;
+  left: 358px;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 16px;
+  padding: 10px 18px;
+  border-radius: var(--radius-xl);
+  background: rgba(15, 21, 35, 0.88);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(130, 145, 181, 0.18);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
 }
 
-.roomi-mock-pill {
-  padding: 6px 10px;
-  border: 1px solid rgba(123, 136, 255, 0.38);
-  border-radius: 999px;
-  background: rgba(123, 136, 255, 0.14);
-  color: #b7beff;
-  font-family: var(--font-display);
-  font-size: 9px;
-  font-style: normal;
+.floating-title-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.floating-kicker {
+  color: var(--color-primary);
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  line-height: 16px;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
+.floating-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.floating-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mock-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(123, 136, 255, 0.18);
+  border: 1px solid rgba(123, 136, 255, 0.4);
+  color: #b7beff;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.floating-stats {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* D3 キャンバス（フルスクリーン） */
 .topic-graph-canvas {
   position: absolute;
   z-index: 1;
-  inset: 80px 0 46px 344px;
-  min-width: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -582,54 +702,12 @@ input {
   cursor: grabbing;
 }
 
-.topic-graph-controls {
-  position: absolute;
-  z-index: 2;
-  right: var(--space-5);
-  bottom: var(--space-2);
-  display: flex;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: rgba(15, 20, 32, 0.9);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
-}
-
-.topic-graph-controls button {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  place-items: center;
-  border: 0;
-  border-left: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text);
-  font: 600 17px/1 var(--font-display);
-  cursor: pointer;
-}
-
-.topic-graph-controls button:first-child {
-  border-left: 0;
-}
-
-.topic-graph-controls button:hover {
-  background: var(--color-panel-hover);
-}
-
-.topic-graph-help {
-  position: absolute;
-  right: 150px;
-  bottom: 16px;
-  color: #758097;
-  font-size: 10px;
-  line-height: 16px;
-  pointer-events: none;
-}
-
+/* ==========================================================================
+   D3 ノード & リンク スタイル (枠線なし、ログインアイコン化)
+   ========================================================================== */
 .topic-graph-link {
-  stroke: #778096;
-  stroke-opacity: 0.48;
+  stroke: #5a657e;
+  stroke-opacity: 0.4;
 }
 
 .topic-graph-link.conversation {
@@ -682,33 +760,44 @@ input {
   fill: #ffb7a9;
 }
 
+/* ノード：クリックしたときに枠線が出ないようにする */
 .topic-graph-node {
   cursor: pointer;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.topic-graph-node:focus,
+.topic-graph-node:focus-visible,
+.topic-graph-node:active {
+  outline: none !important;
 }
 
 .topic-graph-circle {
-  fill: #e8ebf2;
-  stroke: #e8ebf2;
-  stroke-width: 3px;
-  transition: filter 160ms ease, stroke 160ms ease, stroke-width 160ms ease;
+  fill: #161e31;
+  stroke: none !important;
+  stroke-width: 0 !important;
+  transition: filter 160ms ease;
 }
 
 .topic-graph-circle.topic {
   fill: var(--color-primary);
-  stroke: rgba(255, 255, 255, 0.92);
-  stroke-width: 4px;
 }
 
+/* 枠線は出さず、ソフトなグローのみ適用 */
 .topic-graph-node:hover .topic-graph-circle,
-.topic-graph-node:focus-visible .topic-graph-circle,
 .topic-graph-node.selected .topic-graph-circle {
-  filter: drop-shadow(0 0 12px rgba(123, 136, 255, 0.42));
-  stroke: var(--color-secondary);
-  stroke-width: 5px;
+  filter: drop-shadow(0 0 10px rgba(123, 136, 255, 0.6));
+  stroke: none !important;
+  stroke-width: 0 !important;
+  outline: none !important;
 }
 
-.topic-graph-label,
-.topic-graph-count {
+.topic-graph-avatar {
+  pointer-events: none;
+}
+
+.topic-graph-label {
   fill: #dfe4ef;
   font-family: var(--font-body);
   font-size: 12px;
@@ -717,117 +806,288 @@ input {
   paint-order: stroke;
   stroke: var(--color-workspace);
   stroke-linejoin: round;
-  stroke-width: 5px;
+  stroke-width: 4px;
 }
 
-.topic-graph-count {
-  fill: #1a2030;
-  stroke: none;
-}
-
-.topic-graph-node.topic .topic-graph-count {
-  fill: #fff;
-}
-
-.topic-graph-empty,
-.roomi-stage-empty {
-  color: var(--color-text-muted);
-  text-align: center;
-}
-
-.topic-graph-empty {
-  display: grid;
-  height: 100%;
-  place-items: center;
-  font-size: 13px;
-}
-
-.roomi-stage-empty {
+/* ==========================================================================
+   ノード右側ポップアップ (アイコンの右に表示)
+   ========================================================================== */
+.roomi-node-popup {
   position: absolute;
-  inset: 0 0 0 344px;
-  display: grid;
-  place-items: center;
-  align-content: center;
+  z-index: 50;
+  width: 290px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: rgba(16, 22, 36, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(123, 136, 255, 0.3);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(123, 136, 255, 0.15);
+  color: var(--color-text);
+  animation: popupFadeIn 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
 }
 
-.roomi-stage-empty h2 {
-  margin: var(--space-4) 0 var(--space-1);
-  color: #d9deea;
-  font-size: 16px;
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
 }
 
-.roomi-stage-empty p {
-  margin: 0;
-  font-size: 12px;
+.roomi-node-popup.left {
+  animation: popupFadeInLeft 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.roomi-empty-orbit {
-  position: relative;
-  width: 150px;
-  height: 108px;
+@keyframes popupFadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
 }
 
-.roomi-empty-orbit::before,
-.roomi-empty-orbit::after {
+/* 吹き出しの矢印（ポインタ） */
+.roomi-popup-arrow {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 92px;
-  height: 1px;
-  background: #444e65;
-  content: "";
-  transform-origin: left center;
+  top: 24px;
+  width: 10px;
+  height: 10px;
+  background: rgba(16, 22, 36, 0.95);
+  transform: rotate(45deg);
 }
 
-.roomi-empty-orbit::before {
-  transform: rotate(28deg);
+.roomi-node-popup.right .roomi-popup-arrow {
+  left: -6px;
+  border-left: 1px solid rgba(123, 136, 255, 0.3);
+  border-bottom: 1px solid rgba(123, 136, 255, 0.3);
 }
 
-.roomi-empty-orbit::after {
-  transform: rotate(152deg);
+.roomi-node-popup.left .roomi-popup-arrow {
+  right: -6px;
+  border-right: 1px solid rgba(123, 136, 255, 0.3);
+  border-top: 1px solid rgba(123, 136, 255, 0.3);
 }
 
-.roomi-empty-orbit span {
+.roomi-popup-close {
   position: absolute;
-  width: 24px;
-  height: 24px;
-  border: 2px solid #566078;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
-  background: var(--color-workspace);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 120ms ease;
 }
 
-.roomi-empty-orbit span:first-child {
-  top: 42px;
-  left: 63px;
-  width: 30px;
-  height: 30px;
-  border-color: var(--color-primary);
+.roomi-popup-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
-.roomi-empty-orbit span:nth-child(2) {
-  top: 4px;
-  right: 5px;
+.roomi-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.roomi-empty-orbit span:nth-child(3) {
-  bottom: 0;
-  right: 12px;
+.roomi-popup-avatar-wrap {
+  position: relative;
 }
 
-.roomi-empty-orbit span:nth-child(4) {
-  top: 19px;
-  left: 0;
+.roomi-popup-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(123, 136, 255, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.roomi-popup-title-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.roomi-popup-kicker {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.roomi-popup-name {
+  margin: 1px 0 3px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.roomi-popup-role-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(110, 216, 195, 0.15);
+  color: var(--color-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.roomi-popup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.roomi-popup-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(9, 13, 22, 0.6);
+}
+
+.roomi-popup-meta-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.roomi-popup-meta-value {
+  font-size: 12px;
+  color: #e5ebfa;
+}
+
+.roomi-popup-meta-value strong {
+  font-size: 14px;
+  color: var(--color-primary);
+}
+
+.roomi-popup-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.roomi-popup-text {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: #ccd5e5;
+  background: rgba(9, 13, 22, 0.4);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.roomi-popup-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.roomi-popup-relation-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #bcc6db;
+  background: rgba(9, 13, 22, 0.4);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.status-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   コントローラー & 凡例
+   ========================================================================== */
+.topic-graph-controls {
+  position: absolute;
+  z-index: 10;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(15, 21, 35, 0.9);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.topic-graph-controls button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  font: 600 17px/1 var(--font-display);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.topic-graph-controls button:first-child {
+  border-left: 0;
+}
+
+.topic-graph-controls button:hover {
+  background: var(--color-panel-hover);
+}
+
+.topic-graph-help {
+  position: absolute;
+  right: 154px;
+  bottom: 32px;
+  color: #727e96;
+  font-size: 11px;
+  pointer-events: none;
 }
 
 .roomi-legend {
   position: absolute;
-  z-index: 2;
-  bottom: var(--space-4);
-  left: 372px;
+  z-index: 10;
+  bottom: 24px;
+  left: 358px;
   display: flex;
-  gap: var(--space-3);
-  color: #78839a;
-  font-size: 10px;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(15, 21, 35, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  color: #8390ab;
+  font-size: 11px;
   pointer-events: none;
 }
 
@@ -849,9 +1109,13 @@ input {
   background: var(--color-primary);
 }
 
+.roomi-legend i.person {
+  background: var(--color-secondary);
+}
+
 .roomi-legend i.relation {
   position: relative;
-  width: 18px;
+  width: 16px;
   height: 2px;
   border-radius: 0;
   background: var(--color-secondary);
@@ -904,109 +1168,55 @@ input {
   white-space: nowrap;
 }
 
-@media (max-width: 800px) {
-  .roomi-app-shell {
-    padding: 0;
-    overflow: visible;
-  }
+.roomi-stage-empty,
+.topic-graph-empty {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  align-content: center;
+  color: var(--color-text-muted);
+  text-align: center;
+}
 
-  .roomi-app-header {
-    height: 64px;
-    padding: 0 var(--space-3);
-  }
+.roomi-stage-empty h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #fff;
+}
 
-  .roomi-live-status {
-    display: none;
-  }
+.roomi-empty-text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
 
-  .roomi-workspace {
-    height: auto;
-    min-height: calc(100dvh - 64px);
-    border-right: 0;
-    border-left: 0;
-    border-radius: 0;
-    overflow: visible;
-  }
-
-  .roomi-sidebar {
+/* ==========================================================================
+   レスポンシブ対応
+   ========================================================================== */
+@media (max-width: 860px) {
+  .roomi-sidebar-nav {
     position: relative;
-    inset: auto;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    bottom: auto;
     width: auto;
-    max-height: 330px;
-    margin: var(--space-3);
-    overflow: auto;
+    max-height: 280px;
   }
 
-  .roomi-graph-stage {
-    position: relative;
-    min-height: 610px;
-    border-top: 1px solid var(--color-border);
-  }
-
-  .roomi-stage-header {
-    top: var(--space-4);
-    right: var(--space-3);
-    left: var(--space-3);
-  }
-
-  .roomi-stage-header h2 {
-    max-width: 230px;
-    font-size: 15px;
-  }
-
-  .roomi-stage-count {
-    display: none;
-  }
-
-  .roomi-mock-pill {
-    padding: 4px 8px;
-  }
-
-  .topic-graph-canvas {
-    inset: 82px 0 48px;
-  }
-
-  .roomi-stage-empty {
-    inset: 0;
+  .roomi-floating-header {
+    top: auto;
+    bottom: 80px;
+    left: 12px;
+    right: 12px;
   }
 
   .roomi-legend {
-    right: var(--space-3);
-    bottom: var(--space-3);
-    left: var(--space-3);
-    justify-content: center;
-  }
-
-  .topic-graph-controls {
-    right: var(--space-3);
+    left: 12px;
+    bottom: 12px;
   }
 
   .topic-graph-help {
     display: none;
-  }
-}
-
-@media (max-width: 430px) {
-  .roomi-brand div {
-    display: block;
-  }
-
-  .roomi-brand h1 {
-    line-height: 14px;
-  }
-
-  .roomi-sidebar {
-    padding: 20px;
-  }
-
-  .roomi-stage-header {
-    right: 20px;
-    left: 20px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .topic-graph-circle {
-    transition: none;
   }
 }

@@ -34,6 +34,7 @@ export const COMMUNICATION_DEMO: CommunicationDemo = {
         role: "プロダクトマネージャー",
         interests: "課題整理・意思決定",
         messages: 4,
+        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
       },
       {
         id: "U-RIN",
@@ -41,6 +42,7 @@ export const COMMUNICATION_DEMO: CommunicationDemo = {
         role: "プロダクトデザイナー",
         interests: "初回体験・ガイド設計",
         messages: 3,
+        avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80",
       },
       {
         id: "U-MINATO",
@@ -48,6 +50,7 @@ export const COMMUNICATION_DEMO: CommunicationDemo = {
         role: "エンジニア",
         interests: "実装範囲・計測",
         messages: 3,
+        avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80",
       },
       {
         id: "U-MIO",
@@ -55,6 +58,7 @@ export const COMMUNICATION_DEMO: CommunicationDemo = {
         role: "カスタマーサクセス",
         interests: "利用定着・問い合わせ",
         messages: 2,
+        avatar: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop&q=80",
       },
       {
         id: "U-HARU",
@@ -62,6 +66,7 @@ export const COMMUNICATION_DEMO: CommunicationDemo = {
         role: "セールス",
         interests: "顧客期待・導入支援",
         messages: 2,
+        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
       },
     ],
     edges: [
