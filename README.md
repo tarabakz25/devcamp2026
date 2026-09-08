@@ -11,12 +11,20 @@ Slackを主戦場、WebをControl Centerにする「必要な瞬間に不足を�
 
 ## ローカル起動（rootから）
 
+実行には[Go Task](https://taskfile.dev/)が必要。
+
 ```bash
-make test     # 全テスト (ai-core + bot)
-make ai-core  # ai-core単体デモ (Slack不要)
-make demo     # BotのE2Eデモ (dry-run)
-make bot      # Slack Bot起動 (要 .env)
-make web      # Web起動 (初回は make web-install)
+task test     # 全テスト (ai-core + bot)
+task ai-core  # ai-core単体デモ (Slack不要)
+task demo     # BotのE2Eデモ (dry-run)
+task bot      # Slack Bot起動 (要 .env)
+task web      # Web起動 (初回は task web-install)
+```
+
+Slack履歴からステークホルダーを抽出する場合:
+
+```bash
+task stakeholders CHANNEL=C123... LIMIT=100
 ```
 
 ## 本番パス（Dockerあり）

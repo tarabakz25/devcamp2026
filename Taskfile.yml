@@ -1,0 +1,60 @@
+version: "3"
+
+vars:
+  VENV: .venv/bin/python
+  AI_CORE_PATH: apps/ai-core
+
+tasks:
+  default:
+    silent: true
+    cmds:
+      - task --list
+
+  bot:
+    desc: Slack BotをSocket Modeで起動する
+    cmds:
+      - "{{.VENV}} apps/bot/src/slack_app.py"
+
+  web:
+    desc: Web Control Centerを起動する
+    cmds:
+      - npm --prefix apps/web run dev
+
+  web-install:
+    desc: Webの依存関係をインストールする
+    cmds:
+      - npm --prefix apps/web install
+
+  ai-core:
+    desc: ai-coreの単体デモを実行する
+    env:
+      PYTHONPATH: "{{.AI_CORE_PATH}}"
+    cmds:
+      - "{{.VENV}} -m ai_core"
+
+  demo:
+    desc: BotのE2Eデモをdry-runで実行する
+    cmds:
+      - "{{.VENV}} apps/bot/src/main.py --dry-run --demo"
+
+  stakeholders:
+    desc: Slack履歴を取得してステークホルダーを抽出する
+    requires:
+      vars:
+        - CHANNEL
+    vars:
+      LIMIT: '{{default "100" .LIMIT}}'
+    env:
+      STAKEHOLDER_CHANNEL: "{{.CHANNEL}}"
+      STAKEHOLDER_LIMIT: "{{.LIMIT}}"
+    preconditions:
+      - sh: test -n "$STAKEHOLDER_CHANNEL"
+        msg: "CHANNELを指定してね: task stakeholders CHANNEL=C123..."
+    cmds:
+      - '{{.VENV}} apps/bot/src/backfill.py --channel "$STAKEHOLDER_CHANNEL" --limit "$STAKEHOLDER_LIMIT"'
+
+  test:
+    desc: ai-coreとbotの全テストを実行する
+    cmds:
+      - "{{.VENV}} -m unittest discover -s apps/ai-core/tests"
+      - "{{.VENV}} -m unittest discover -s apps/bot/tests"
