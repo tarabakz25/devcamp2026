@@ -11,16 +11,46 @@ import type {
 } from "./components/CommunicationTopicGraph";
 import { COMMUNICATION_DEMO } from "./mocks/communicationDemo";
 import type { AuditItem, TimelineItem } from "./mocks/communicationDemo";
+import { signIn, signOut, useSession } from "@/lib/auth-client";
+import GoogleIcon from "./components/GoogleIcon";
 
 type MenuItem = "graph" | "members" | "ai" | "account";
 
 export default function Page() {
+  const { data: session, isPending: isSessionPending } = useSession();
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
   const [activeMenu, setActiveMenu] = useState<MenuItem>("graph");
   const [timeline] = useState<TimelineItem[]>(COMMUNICATION_DEMO.timeline);
   const [audit] = useState<AuditItem[]>(COMMUNICATION_DEMO.audit);
   const [graph] = useState<CommunicationGraphData>(COMMUNICATION_DEMO.graph);
   const [, setSelection] = useState<GraphSelection | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsSigningIn(true);
+      setAuthError(null);
+      await signIn.social({
+        provider: "google",
+        callbackURL: window.location.origin,
+      });
+    } catch (err: any) {
+      console.error("Google sign in failed:", err);
+      setAuthError(err?.message || "Google認証の開始に失敗しました。");
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      window.location.reload();
+    } catch (err: any) {
+      console.error("Sign out failed:", err);
+    }
+  };
 
   const topicLabel = COMMUNICATION_DEMO.title;
   const loadedThreadId = COMMUNICATION_DEMO.threadId;
@@ -248,59 +278,137 @@ export default function Page() {
           {activeMenu === "account" && (
             <div className="roomi-pane-account">
               <span className="roomi-pane-kicker">ユーザーアカウント</span>
-              <div className="account-profile-box">
-                <img
-                  className="account-avatar"
-                  src={
-                    graph.nodes[0]?.avatar ||
-                    getFallbackAvatarSvg("葵", "U-AOI")
-                  }
-                  alt="Current User"
-                />
-                <h4 className="account-name">{graph.nodes[0]?.name || "葵"}</h4>
-                <span className="account-role-tag">
-                  {graph.nodes[0]?.role || "プロダクトマネージャー"}
-                </span>
-                <span className="account-email">aoi@roomi.workspace.local</span>
-              </div>
-              <div className="account-details">
-                <div className="detail-item">
-                  <span className="detail-key">ワークスペース</span>
-                  <span className="detail-val">Roomi DevCamp 2026</span>
+              {isSessionPending ? (
+                <div style={{ padding: "24px 12px", textAlign: "center", color: "var(--color-text-muted)", fontSize: "12px" }}>
+                  認証状態を確認中...
                 </div>
-                <div className="detail-item">
-                  <span className="detail-key">権限</span>
-                  <span className="detail-val">管理者 (Admin)</span>
+              ) : session?.user ? (
+                <>
+                  <div className="account-profile-box">
+                    <img
+                      className="account-avatar"
+                      src={
+                        session.user.image ||
+                        getFallbackAvatarSvg(session.user.name || "ユーザー", session.user.id)
+                      }
+                      alt={session.user.name || "ユーザー"}
+                    />
+                    <h4 className="account-name">{session.user.name}</h4>
+                    <span className="account-role-tag">Google 認証済み</span>
+                    <span className="account-email">{session.user.email}</span>
+                  </div>
+                  <div className="account-details">
+                    <div className="detail-item">
+                      <span className="detail-key">ワークスペース</span>
+                      <span className="detail-val">Roomi DevCamp 2026</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-key">認証プロバイダ</span>
+                      <span className="detail-val">Google (Better Auth)</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-key">ユーザーID</span>
+                      <span className="detail-val" style={{ fontSize: "10px", wordBreak: "break-all" }}>
+                        {session.user.id.slice(0, 12)}...
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-key">ステータス</span>
+                      <span className="detail-val status-online">● ログイン中</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="roomi-logout-btn"
+                    onClick={handleSignOut}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    ログアウト
+                  </button>
+                </>
+              ) : (
+                <div className="roomi-auth-card">
+                  <h4 className="roomi-auth-card-title">Google アカウントでログイン</h4>
+                  <p className="roomi-auth-card-desc">
+                    Better Auth による Google OAuth 認証でログインできます。
+                  </p>
+                  <button
+                    type="button"
+                    className="roomi-google-signin-btn"
+                    onClick={handleGoogleSignIn}
+                    disabled={isSigningIn}
+                  >
+                    <GoogleIcon />
+                    <span>{isSigningIn ? "Googleへ接続中..." : "Googleでログイン"}</span>
+                  </button>
+
+                  {authError && (
+                    <div style={{ color: "#f87171", fontSize: "11px", marginTop: "8px" }}>
+                      {authError}
+                    </div>
+                  )}
+
+                  <div className="roomi-auth-notice">
+                    <p><strong>💡 Google OAuth設定:</strong></p>
+                    <p>Google Cloud Console のリダイレクトURI:</p>
+                    <code>http://localhost:3000/api/auth/callback/google</code>
+                    <p style={{ marginTop: "4px" }}>
+                      <code>.env</code> に <code>GOOGLE_CLIENT_ID</code> と <code>GOOGLE_CLIENT_SECRET</code> を指定して利用します。
+                    </p>
+                  </div>
                 </div>
-                <div className="detail-item">
-                  <span className="detail-key">ステータス</span>
-                  <span className="detail-val status-online">● オンライン</span>
-                </div>
-              </div>
+              )}
             </div>
           )}
         </div>
 
         {/* サイドバー下部 */}
         <div className="roomi-sidebar-footer">
-          <div className="roomi-footer-user">
-            <img
-              src={
-                graph.nodes[0]?.avatar ||
-                getFallbackAvatarSvg("葵", "U-AOI")
-              }
-              alt="User"
-              className="footer-avatar"
-            />
-            <div className="footer-user-meta">
-              <span className="footer-user-name">
-                {graph.nodes[0]?.name || "葵"}
-              </span>
-              <span className="footer-user-role">
-                {graph.nodes[0]?.role || "PM"}
-              </span>
-            </div>
-          </div>
+          {session?.user ? (
+            <button
+              type="button"
+              className="roomi-footer-user"
+              style={{
+                background: "none",
+                border: "none",
+                width: "100%",
+                padding: 0,
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+              onClick={() => setActiveMenu("account")}
+            >
+              <img
+                src={
+                  session.user.image ||
+                  getFallbackAvatarSvg(session.user.name || "ユーザー", session.user.id)
+                }
+                alt={session.user.name}
+                className="footer-avatar"
+              />
+              <div className="footer-user-meta">
+                <span className="footer-user-name">
+                  {session.user.name}
+                </span>
+                <span className="footer-user-role">
+                  Google認証済
+                </span>
+              </div>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="roomi-footer-login-btn"
+              onClick={() => setActiveMenu("account")}
+            >
+              <GoogleIcon className="roomi-google-icon" />
+              <span>Googleログイン</span>
+            </button>
+          )}
         </div>
       </aside>
 

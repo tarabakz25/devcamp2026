@@ -80,3 +80,51 @@ CREATE TABLE IF NOT EXISTS intervention_rules (
   cooldown_sec INTEGER NOT NULL DEFAULT 600,
   enabled INTEGER NOT NULL DEFAULT 1
 );
+
+-- Better Auth Tables (Web / Next.js)
+CREATE TABLE IF NOT EXISTS "user" (
+  "id" text not null primary key,
+  "name" text not null,
+  "email" text not null unique,
+  "emailVerified" integer not null,
+  "image" text,
+  "createdAt" date not null,
+  "updatedAt" date not null
+);
+
+CREATE TABLE IF NOT EXISTS "session" (
+  "id" text not null primary key,
+  "expiresAt" date not null,
+  "token" text not null unique,
+  "createdAt" date not null,
+  "updatedAt" date not null,
+  "ipAddress" text,
+  "userAgent" text,
+  "userId" text not null references "user" ("id") on delete cascade
+);
+
+CREATE TABLE IF NOT EXISTS "account" (
+  "id" text not null primary key,
+  "accountId" text not null,
+  "providerId" text not null,
+  "userId" text not null references "user" ("id") on delete cascade,
+  "accessToken" text,
+  "refreshToken" text,
+  "idToken" text,
+  "accessTokenExpiresAt" date,
+  "refreshTokenExpiresAt" date,
+  "scope" text,
+  "password" text,
+  "createdAt" date not null,
+  "updatedAt" date not null
+);
+
+CREATE TABLE IF NOT EXISTS "verification" (
+  "id" text not null primary key,
+  "identifier" text not null,
+  "value" text not null,
+  "expiresAt" date not null,
+  "createdAt" date not null,
+  "updatedAt" date not null
+);
+
