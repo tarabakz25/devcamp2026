@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS stakeholders (
   user_name TEXT DEFAULT '',
   role TEXT DEFAULT '',
   interests TEXT DEFAULT '',
+  avatar TEXT DEFAULT '',
   message_count INTEGER DEFAULT 0,
   UNIQUE (thread_id, user_id)
 );

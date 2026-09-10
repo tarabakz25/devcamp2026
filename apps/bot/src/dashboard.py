@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+from typing import Any
 
 
 def timeline(conn: sqlite3.Connection, thread_id: str) -> list[dict]:
@@ -19,7 +20,7 @@ def stakeholder_graph(conn: sqlite3.Connection, thread_id: str) -> dict:
     )
     counts = {r["user_id"]: r["n"] for r in cur.fetchall()}
     stakeholder_rows = conn.execute(
-        "SELECT user_id, user_name, role, interests FROM stakeholders "
+        "SELECT user_id, user_name, role, interests, avatar FROM stakeholders "
         "WHERE thread_id = ?",
         (thread_id,),
     )
@@ -39,6 +40,7 @@ def stakeholder_graph(conn: sqlite3.Connection, thread_id: str) -> dict:
             "name": holder.get("user_name") or user.get("name") or user_id,
             "role": holder.get("role") or user.get("role") or "",
             "interests": holder.get("interests") or "",
+            "avatar": holder.get("avatar") or "",
             "messages": message_count,
         })
 
@@ -100,29 +102,143 @@ def audit_log(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
     return [dict(r) for r in cur.fetchall()]
 
 
-def build_fastapi_app(db_path: str = ":memory:"):
+def build_fastapi_app(
+    db_path: str = ":memory:", llm=None, llm_name: str | None = None
+):
     """FastAPIがあればWeb用APIサーバを組み立てる。なければNone。"""
     try:
-        from fastapi import FastAPI
+        from fastapi import FastAPI, HTTPException
+        from fastapi.middleware.cors import CORSMiddleware
     except ImportError:
         return None
-    from .store import connect
 
-    app = FastAPI(title="AI SlackBot Dashboard API")
+    from contextlib import contextmanager
+
+    from ai_core import get_llm, resolve_llm_name
+    from demo_room import (
+        add_stakeholder,
+        force_intervene,
+        load_scenario,
+        play_tick,
+        post_user_message,
+        remove_stakeholder,
+        reset_room,
+        room_state,
+        start_playback,
+        stop_playback,
+    )
+    from store import connect
+
+    llm_name = llm_name or resolve_llm_name()
+    llm = llm or get_llm(llm_name)
+    app = FastAPI(title="Roomi Dashboard API")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @contextmanager
+    def db():
+        conn = connect(db_path)
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+    @app.get("/health")
+    def health():
+        return {"ok": True, "llm": llm_name}
 
     @app.get("/api/threads/{thread_id}/timeline")
     def get_timeline(thread_id: str):
-        with connect(db_path) as conn:
+        with db() as conn:
             return timeline(conn, thread_id)
 
     @app.get("/api/threads/{thread_id}/graph")
     def get_graph(thread_id: str):
-        with connect(db_path) as conn:
+        with db() as conn:
             return stakeholder_graph(conn, thread_id)
 
     @app.get("/api/audit")
     def get_audit():
-        with connect(db_path) as conn:
+        with db() as conn:
             return audit_log(conn)
+
+    @app.get("/api/demo")
+    def get_demo():
+        with db() as conn:
+            return room_state(conn, llm_name)
+
+    @app.post("/api/demo/messages")
+    def post_demo_message(payload: dict[str, Any]):
+        try:
+            with db() as conn:
+                return post_user_message(
+                    conn, llm, str(payload.get("user_id", "")), str(payload.get("text", ""))
+                )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/demo/stakeholders")
+    def post_demo_stakeholder(payload: dict[str, Any]):
+        try:
+            with db() as conn:
+                return add_stakeholder(
+                    conn,
+                    str(payload.get("name", "")),
+                    str(payload.get("role", "")),
+                    str(payload.get("interests", "")),
+                    str(payload.get("avatar", "")),
+                )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.delete("/api/demo/stakeholders/{user_id}")
+    def delete_demo_stakeholder(user_id: str):
+        with db() as conn:
+            ok = remove_stakeholder(conn, user_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="関係者が見つからない")
+        return {"ok": True, "user_id": user_id}
+
+    @app.post("/api/demo/intervene")
+    def post_demo_intervene():
+        with db() as conn:
+            return force_intervene(conn, llm)
+
+    @app.post("/api/demo/scenario")
+    def post_demo_scenario():
+        with db() as conn:
+            return load_scenario(conn)
+
+    @app.post("/api/demo/play/start")
+    def post_demo_play_start():
+        with db() as conn:
+            return start_playback(conn, llm)
+
+    @app.post("/api/demo/play/tick")
+    def post_demo_play_tick():
+        try:
+            with db() as conn:
+                return play_tick(conn, llm)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/demo/play/stop")
+    def post_demo_play_stop():
+        with db() as conn:
+            return stop_playback(conn, llm_name)
+
+    @app.post("/api/demo/reset")
+    def post_demo_reset(payload: dict[str, Any] | None = None):
+        keep = True if not payload else bool(payload.get("keep_stakeholders", True))
+        with db() as conn:
+            reset_room(conn, keep_stakeholders=keep)
+            return room_state(conn, llm_name)
 
     return app

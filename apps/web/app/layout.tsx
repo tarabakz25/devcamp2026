@@ -4,6 +4,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Roomi Control Center",
   description: "AIの判断・関係性・記憶の可視化",
+  icons: {
+    icon: "/roomi-logo.svg",
+    apple: "/roomi-logo.svg",
+  },
 };
 
 export default function RootLayout({

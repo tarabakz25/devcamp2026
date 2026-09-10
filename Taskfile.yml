@@ -20,6 +20,11 @@ tasks:
     cmds:
       - npm --prefix apps/web run dev
 
+  dash:
+    desc: デモチャット用 Dashboard API を起動する
+    cmds:
+      - "{{.VENV}} apps/bot/src/dash_server.py"
+
   web-install:
     desc: Webの依存関係をインストールする
     cmds:

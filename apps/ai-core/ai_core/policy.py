@@ -43,12 +43,8 @@ def decide(
             f"しきい値未満 (conf={result.confidence:.2f}, impact={result.impact:.2f})",
         )
 
-    # 高確信+メンション -> mention、通常介入 -> reply、参加者多め -> handoff
-    action = "reply"
-    if result.confidence >= 0.9:
-        action = "mention"
-    if len(result.stakeholders or []) >= 4:
-        action = "handoff"
+    # 0/1判定では通常 reply。参加者が多い議論は途中参加向け handoff。
+    action = "handoff" if len(result.stakeholders or []) >= 4 else "reply"
     return Decision(True, action, result.reason)
 
 

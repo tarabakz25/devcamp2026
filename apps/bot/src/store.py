@@ -18,10 +18,11 @@ def connect(db_path: str | None = None) -> sqlite3.Connection:
     db_path = db_path or os.environ.get("SQLITE_PATH", ":memory:")
     if db_path != ":memory:":
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     with open(SCHEMA_PATH, encoding="utf-8") as f:
         conn.executescript(f.read())
+    _ensure_columns(conn)
     # デフォルトルール
     cur = conn.execute("SELECT COUNT(*) AS c FROM intervention_rules")
     if cur.fetchone()["c"] == 0:
@@ -32,6 +33,63 @@ def connect(db_path: str | None = None) -> sqlite3.Connection:
         )
         conn.commit()
     return conn
+
+
+def _ensure_columns(conn: sqlite3.Connection) -> None:
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(stakeholders)")}
+    if "avatar" not in cols:
+        conn.execute(
+            "ALTER TABLE stakeholders ADD COLUMN avatar TEXT DEFAULT ''"
+        )
+        conn.commit()
+
+
+def upsert_user(
+    conn: sqlite3.Connection, user_id: str, name: str, role: str = ""
+) -> None:
+    conn.execute(
+        "INSERT INTO users (id, name, role) VALUES (?, ?, ?) "
+        "ON CONFLICT(id) DO UPDATE SET "
+        "name=excluded.name, "
+        "role=CASE WHEN excluded.role != '' THEN excluded.role ELSE users.role END",
+        (user_id, name, role),
+    )
+    conn.commit()
+
+
+def upsert_stakeholder(
+    conn: sqlite3.Connection,
+    thread_id: str,
+    user_id: str,
+    user_name: str,
+    role: str = "",
+    interests: str = "",
+    avatar: str = "",
+) -> None:
+    conn.execute(
+        "INSERT INTO stakeholders "
+        "(thread_id, user_id, user_name, role, interests, message_count, avatar) "
+        "VALUES (?, ?, ?, ?, ?, 0, ?) "
+        "ON CONFLICT(thread_id, user_id) DO UPDATE SET "
+        "user_name=excluded.user_name, "
+        "role=excluded.role, "
+        "interests=excluded.interests, "
+        "avatar=CASE WHEN excluded.avatar != '' THEN excluded.avatar "
+        "ELSE stakeholders.avatar END",
+        (thread_id, user_id, user_name, role, interests, avatar),
+    )
+    upsert_user(conn, user_id, user_name, role)
+
+
+def delete_stakeholder(
+    conn: sqlite3.Connection, thread_id: str, user_id: str
+) -> bool:
+    cur = conn.execute(
+        "DELETE FROM stakeholders WHERE thread_id = ? AND user_id = ?",
+        (thread_id, user_id),
+    )
+    conn.commit()
+    return cur.rowcount > 0
 
 
 def save_message(conn: sqlite3.Connection, msg) -> None:

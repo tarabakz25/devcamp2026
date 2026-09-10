@@ -60,10 +60,53 @@ class TestCore(unittest.TestCase):
         d = decide(FakeRules(), "C1", "T", result, now=1000.0)
         self.assertFalse(d.should_act)
 
+    def test_dummy_binary_judge(self):
+        llm = get_llm("dummy")
+        yes, reason = llm.needs_intervention(
+            "2階を使ってください。学生の朝は1階の方が楽で続けたい。"
+        )
+        self.assertTrue(yes)
+        self.assertIn("食い違", reason)
+        no, idle = llm.needs_intervention("了解です。搬入場所はA棟1階です。")
+        self.assertFalse(no)
+        self.assertIn("介入不要", idle)
+
+    def test_dummy_stakeholder_reply(self):
+        llm = get_llm("dummy")
+        text = llm.reply_as_stakeholder(
+            "高橋さくら", "寮スタッフ", "居住エリア", "A棟1階で揉めてる", "場所を分けよう"
+        )
+        self.assertIn("高橋さくら", text)
+        self.assertIn("分け", text)
+
     def test_handoff(self):
         msgs = [{"user_id": "U1", "text": "決めよう?", "is_mention": 0}]
         ctx = build_context(msgs, "T2", "C1")
         self.assertIn("途中参加", make_handoff(ctx, "要約"))
+
+    def test_resolve_llm_name_and_aliases(self):
+        import os
+        from ai_core import resolve_llm_name
+
+        old_provider = os.environ.get("LLM_PROVIDER")
+        old_key = os.environ.get("XAI_API_KEY")
+        try:
+            os.environ.pop("LLM_PROVIDER", None)
+            os.environ.pop("XAI_API_KEY", None)
+            self.assertEqual(resolve_llm_name(), "dummy")
+            os.environ["LLM_PROVIDER"] = "openai-compatible"
+            self.assertEqual(resolve_llm_name(), "openai-compatible")
+            llm = get_llm("dummy")
+            self.assertEqual(llm.summarize("a\nb"), "要約: a / b")
+        finally:
+            if old_provider is None:
+                os.environ.pop("LLM_PROVIDER", None)
+            else:
+                os.environ["LLM_PROVIDER"] = old_provider
+            if old_key is None:
+                os.environ.pop("XAI_API_KEY", None)
+            else:
+                os.environ["XAI_API_KEY"] = old_key
 
 
 if __name__ == "__main__":

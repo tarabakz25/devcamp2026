@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { signIn, signOut, useSession } from "@/lib/auth-client";
 import GoogleIcon from "../components/GoogleIcon";
+import RoomiLogo from "../components/RoomiLogo";
 
 export default function LoginPage() {
   const { data: session, isPending } = useSession();
@@ -37,7 +38,9 @@ export default function LoginPage() {
   return (
     <div className="roomi-login-shell">
       <div className="roomi-login-card">
-        <div className="roomi-login-logo">R</div>
+        <div className="roomi-login-logo" aria-hidden="true">
+          <RoomiLogo size={56} />
+        </div>
         <h1 className="roomi-login-title">Roomi Control Center</h1>
         <p className="roomi-login-subtitle">
           AIの判断・関係性・記憶を可視化するダッシュボード

@@ -10,18 +10,10 @@ AI_CORE = BOT_SRC.parent.parent / "ai-core"
 sys.path.insert(0, str(BOT_SRC))
 sys.path.insert(0, str(AI_CORE))
 
-from ai_core import (
-    build_context,
-    decide,
-    get_llm,
-    judge_intervention,
-    make_handoff,
-    observe,
-    record,
-)
+from ai_core import get_llm, resolve_llm_name
 from actions import post_message
-from gateway import normalize_event
-from store import SqliteRules, connect, save_message, thread_messages
+from pipeline import process_event
+from store import connect
 
 
 def load_dotenv(path: str = ".env") -> None:
@@ -37,22 +29,15 @@ def load_dotenv(path: str = ".env") -> None:
 
 
 def handle_message(payload: dict, conn, llm) -> None:
-    msg = normalize_event(payload)
-    if msg is None:
+    out = process_event(conn, llm, payload)
+    if not out.accepted or out.message is None:
         return
-    save_message(conn, msg)
-    rules = SqliteRules(conn)
-    rows = thread_messages(conn, msg.thread_id)
-    ctx = build_context([dict(r) for r in rows], msg.thread_id, msg.channel_id)
-    summary = observe(ctx, llm)
-    result = judge_intervention(ctx, llm)
-    decision = decide(rules, msg.channel_id, msg.thread_id, result)
-    print(f"[{msg.channel_id}/{msg.thread_id}] {decision.action}: {decision.reason}")
-    if not decision.should_act:
+    channel_id = out.message["channel_id"]
+    thread_id = out.message["thread_id"]
+    print(f"[{channel_id}/{thread_id}] {out.action}: {out.reason}")
+    if not out.should_act:
         return
-    record(rules, msg.thread_id, result, decision.action)
-    post_message(msg.channel_id, msg.thread_id, make_handoff(ctx, summary),
-                 decision.action)
+    post_message(channel_id, thread_id, out.bot_text, out.action)
 
 
 def main() -> None:
@@ -66,7 +51,7 @@ def main() -> None:
     from slack_bolt.adapter.socket_mode import SocketModeHandler
 
     conn = connect()
-    llm = get_llm(os.environ.get("LLM_PROVIDER", "dummy"))
+    llm = get_llm(resolve_llm_name())
     app = App(token=bot_token)
 
     @app.event("app_mention")

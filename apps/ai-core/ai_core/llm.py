@@ -9,7 +9,16 @@ from typing import Protocol
 class LLMProvider(Protocol):
     def summarize(self, text: str) -> str: ...
     def score_intervention(self, context_summary: str) -> tuple[float, float, str]: ...
+    def needs_intervention(self, context_summary: str) -> tuple[bool, str]: ...
     def extract_stakeholders(self, messages: list[dict]) -> list[dict]: ...
+    def reply_as_stakeholder(
+        self,
+        speaker_name: str,
+        role: str,
+        interests: str,
+        history: str,
+        roomi_text: str = "",
+    ) -> str: ...
 
 
 class DummyLLM:
@@ -22,12 +31,28 @@ class DummyLLM:
     def score_intervention(
         self, context_summary: str
     ) -> tuple[float, float, str]:
-        # 未解決が多ければ confidence/impact を上げる単純ヒューリスティック
-        q = context_summary.count("?") + context_summary.count("？")
-        conf = min(0.95, 0.4 + 0.15 * q)
-        impact = min(0.95, 0.5 + 0.1 * q)
-        reason = f"未解決っぽい発言が{q}件あるため"
-        return conf, impact, reason
+        yes, reason = self.needs_intervention(context_summary)
+        if yes:
+            return 1.0, 1.0, reason
+        return 0.0, 0.0, reason
+
+    def needs_intervention(self, context_summary: str) -> tuple[bool, str]:
+        text = context_summary or ""
+        student_side = any(
+            token in text for token in ("続けたい", "学生の朝", "準備片付け", "楽に")
+        )
+        staff_side = any(
+            token in text
+            for token in ("してください", "使ってください", "居住", "専用", "エリアを分け")
+        )
+        if student_side and staff_side:
+            return True, "方針が食い違っている"
+        q = text.count("?") + text.count("？")
+        if q >= 1 and any(
+            token in text for token in ("どうする", "なぜ", "誰", "いつ")
+        ):
+            return True, f"未解決っぽい発言が{q}件あるため"
+        return False, "まだ介入不要"
 
     def extract_stakeholders(self, messages: list[dict]) -> list[dict]:
         # LLMなしでは発言者一覧だけ返す
@@ -40,53 +65,112 @@ class DummyLLM:
             for u, n in seen.items()
         ]
 
+    def reply_as_stakeholder(
+        self,
+        speaker_name: str,
+        role: str,
+        interests: str,
+        history: str,
+        roomi_text: str = "",
+    ) -> str:
+        focus = (interests or role or "今の論点").split("・")[0]
+        if "スタッフ" in role:
+            return (
+                f"{speaker_name}です。{focus}の立場だと、"
+                "居住スペースと朝食会場は分けた方がいいと思います。"
+            )
+        if "学生" in role or "モノラボ" in role:
+            return (
+                f"{focus}の現場からすると、先に場所を一つに決めたいです。"
+                "Roomiの整理を踏まえても、自分の立場は変わりません。"
+            )
+        return f"{speaker_name}としては、{focus}を優先して決めたいです。"
+
 
 class OpenAIProvider:
-    """OpenAI Responses/Chat Completionsで動く実装。"""
+    """OpenAI互換 Chat Completionsで動く実装（OpenAI / xAI）。"""
 
-    def __init__(self, model: str = "gpt-4o-mini") -> None:
+    def __init__(
+        self,
+        model: str = "gpt-4o-mini",
+        *,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> None:
         from openai import OpenAI
 
         kwargs: dict = {}
-        base_url = os.environ.get("OPENAI_BASE_URL", "")
-        if base_url:
-            kwargs["base_url"] = base_url
-        self._client = OpenAI(**kwargs)  # OPENAI_API_KEYを読む
-        self._model = os.environ.get("OPENAI_MODEL", model)
+        if api_key:
+            kwargs["api_key"] = api_key
+        env_base = os.environ.get("OPENAI_BASE_URL", "")
+        url = base_url if base_url is not None else env_base
+        if url:
+            kwargs["base_url"] = url
+        self._client = OpenAI(**kwargs)
+        self._model = model
 
-    def _chat(self, system: str, user: str) -> str:
+    def _chat(
+        self,
+        system: str,
+        user: str,
+        *,
+        model: str | None = None,
+        effort: str | None = None,
+    ) -> str:
         kwargs: dict = {
-            "model": self._model,
+            "model": model or self._model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
         }
-        effort = os.environ.get("OPENAI_REASONING_EFFORT", "")
-        if effort:
-            kwargs["reasoning_effort"] = effort
+        use_effort = (
+            effort
+            if effort is not None
+            else os.environ.get("OPENAI_REASONING_EFFORT", "")
+        )
+        if use_effort:
+            kwargs["reasoning_effort"] = use_effort
         resp = self._client.chat.completions.create(**kwargs)
         return resp.choices[0].message.content or ""
 
     def summarize(self, text: str) -> str:
         return self._chat(
-            "Slackの議論を3行以内で日本語要約するアシスタント。",
-            text[:6000],
+            "あなたは会議の書記だ。入力は発言ログである。3行以内で日本語要約し、要約本文だけ返す。",
+            f"発言ログ:\n{text[:6000]}",
         )
 
     def score_intervention(self, context_summary: str) -> tuple[float, float, str]:
+        yes, reason = self.needs_intervention(context_summary)
+        if yes:
+            return 1.0, 1.0, reason
+        return 0.0, 0.0, reason
+
+    def needs_intervention(self, context_summary: str) -> tuple[bool, str]:
+        model = os.environ.get("JUDGE_MODEL", "").strip() or self._model
+        effort = os.environ.get("JUDGE_REASONING_EFFORT", "none").strip() or "none"
         out = self._chat(
-            "Slack議論へのAI介入の必要性を判定する。必ず"
-            '{"confidence": 0.0-1.0, "impact": 0.0-1.0, "reason": "日本語理由"}'
-            "のJSONだけ返す。",
-            context_summary[:4000],
+            "Slack議論への介入判定器。今すぐAIが割り込むべきなら1、まだ様子見なら0。"
+            "1: 方針が食い違っている、関係者がすれ違っている、論点が散らかっている、決めきれない。"
+            "0: 情報共有だけ、片側の説明、謝罪や補足、まだ反論がない。"
+            '必ず {"intervene": 0, "reason": "短い日本語"} だけ返す。',
+            f"発言ログ:\n{(context_summary or '')[:4000]}",
+            model=model,
+            effort=effort,
         )
         try:
             data = json.loads(out[out.index("{"):out.rindex("}") + 1])
-            return (float(data["confidence"]),
-                    float(data["impact"]), str(data["reason"]))
-        except (ValueError, KeyError):
-            return 0.5, 0.5, out[:200]
+            raw = data.get("intervene", 0)
+            yes = int(raw) == 1 or raw is True or str(raw).strip() == "1"
+            reason = str(data.get("reason") or ("介入する" if yes else "まだ介入不要"))
+            return yes, reason
+        except (ValueError, KeyError, TypeError):
+            stripped = (out or "").strip()
+            if stripped.startswith("1"):
+                return True, stripped[:120]
+            if stripped.startswith("0"):
+                return False, stripped[:120]
+            return False, stripped[:120] or "判定不能"
 
     def extract_stakeholders(self, messages: list[dict]) -> list[dict]:
         lines = [
@@ -105,10 +189,53 @@ class OpenAIProvider:
         except ValueError:
             return DummyLLM().extract_stakeholders(messages)
 
+    def reply_as_stakeholder(
+        self,
+        speaker_name: str,
+        role: str,
+        interests: str,
+        history: str,
+        roomi_text: str = "",
+    ) -> str:
+        roomi_block = f"\nRoomiの直前の発言:\n{roomi_text[:1500]}" if roomi_text else ""
+        out = self._chat(
+            (
+                f"あなたは神山まるごと高専のSlackにいる「{speaker_name}」"
+                f"（役割: {role or '関係者'}）だ。"
+                f"あなたの立場: {interests or '議論の整理'}。"
+                "朝食会場の場所について話している。"
+                "本人の立場は崩さない。Roomiに合わせすぎない。"
+                "寮スタッフなら居住エリア分離、学生なら現場の準備しやすさや"
+                "今の場所の継続を優先する。"
+                "1〜3文の短い日本語だけ返す。AIだと言わない。"
+                "絵文字は使っても1つまで。Slackの返信として自然に。"
+            ),
+            f"これまでの発言:\n{history[:5000]}{roomi_block}\n\n{speaker_name}として次の一言:",
+        )
+        return (out or "").strip() or DummyLLM().reply_as_stakeholder(
+            speaker_name, role, interests, history, roomi_text
+        )
+
+
+def resolve_llm_name() -> str:
+    """LLM_PROVIDER があればそれを使う。未設定なら XAI_API_KEY の有無で決める。"""
+    name = os.environ.get("LLM_PROVIDER", "").strip()
+    if name:
+        return name
+    if os.environ.get("XAI_API_KEY"):
+        return "xai"
+    return "dummy"
+
 
 def get_llm(name: str = "dummy") -> LLMProvider:
     if name == "dummy":
         return DummyLLM()
-    if name == "openai":
-        return OpenAIProvider()
+    if name in ("openai", "openai-compatible"):
+        return OpenAIProvider(model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"))
+    if name == "xai":
+        return OpenAIProvider(
+            model=os.environ.get("XAI_MODEL", "grok-4.6"),
+            api_key=os.environ.get("XAI_API_KEY"),
+            base_url="https://api.x.ai/v1",
+        )
     raise ValueError(f"unknown LLM provider: {name}")

@@ -12,12 +12,15 @@ import type {
 import { COMMUNICATION_DEMO } from "./mocks/communicationDemo";
 import type { AuditItem, TimelineItem } from "./mocks/communicationDemo";
 import { signIn, signOut, useSession } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 import GoogleIcon from "./components/GoogleIcon";
+import RoomiLogo from "./components/RoomiLogo";
 
 type MenuItem = "graph" | "members" | "ai" | "account";
 
 export default function Page() {
   const { data: session, isPending: isSessionPending } = useSession();
+  const router = useRouter();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -69,7 +72,7 @@ export default function Page() {
         {/* 上部: workspace名 */}
         <div className="roomi-workspace-header">
           <div className="roomi-workspace-logo" aria-hidden="true">
-            <span>R</span>
+            <RoomiLogo size={36} />
           </div>
           <div className="roomi-workspace-info">
             <span className="roomi-workspace-title">Roomi Workspace</span>
@@ -100,6 +103,45 @@ export default function Page() {
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
             </svg>
             <span className="roomi-menu-label">グラフ</span>
+          </button>
+
+          <button
+            type="button"
+            className="roomi-menu-item"
+            onClick={() => router.push("/demo")}
+          >
+            <svg
+              className="roomi-menu-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span className="roomi-menu-label">デモチャット</span>
+          </button>
+
+          <button
+            type="button"
+            className="roomi-menu-item"
+            onClick={() => router.push("/demo/cast")}
+          >
+            <svg
+              className="roomi-menu-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M7 8h10M7 12h6M7 16h8" />
+            </svg>
+            <span className="roomi-menu-label">担当一覧</span>
           </button>
 
           <button

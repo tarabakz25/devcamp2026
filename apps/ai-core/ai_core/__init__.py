@@ -8,7 +8,7 @@ from .agents import (
     observe,
 )
 from .context_builder import ThreadContext, build_context
-from .llm import DummyLLM, OpenAIProvider, get_llm
+from .llm import DummyLLM, OpenAIProvider, get_llm, resolve_llm_name
 from .policy import Decision, decide, record
 
 __all__ = [
@@ -16,4 +16,5 @@ __all__ = [
     "Stakeholder", "ThreadContext",
     "build_context", "decide", "extract_stakeholders", "get_llm",
     "judge_intervention", "make_handoff", "observe", "record",
+    "resolve_llm_name",
 ]

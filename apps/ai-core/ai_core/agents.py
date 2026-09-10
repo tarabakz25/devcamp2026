@@ -33,10 +33,17 @@ def map_stakeholders(ctx: ThreadContext) -> list[str]:
 
 
 def judge_intervention(ctx: ThreadContext, llm) -> AgentResult:
-    conf, impact, reason = llm.score_intervention(ctx.summary)
-    # メンションがあれば底上げ（呼ばれたら応答寄り）
+    if hasattr(llm, "needs_intervention"):
+        yes, reason = llm.needs_intervention(ctx.summary)
+        conf, impact = (1.0, 1.0) if yes else (0.0, 0.0)
+    else:
+        conf, impact, reason = llm.score_intervention(ctx.summary)
+    # メンションされたら必ず応答寄り
     if ctx.mentions_bot:
-        conf = min(0.99, conf + 0.2)
+        conf = 0.99
+        impact = max(impact, 0.99)
+        if not reason or reason == "まだ介入不要":
+            reason = "メンションされた"
     stakeholders = map_stakeholders(ctx)
     return AgentResult(
         confidence=conf, impact=impact, reason=reason,
