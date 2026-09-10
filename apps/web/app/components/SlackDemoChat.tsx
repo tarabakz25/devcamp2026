@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { MentionText, getFallbackAvatarSvg } from "./CommunicationTopicGraph";
 import RoomiLogo from "./RoomiLogo";
@@ -424,29 +423,6 @@ export default function SlackDemoChat() {
 
   return (
     <div className="slack-demo-shell">
-      <header className="slack-demo-topbar">
-        <div className="slack-demo-topbar-brand">
-          <span className="slack-demo-topbar-mark" aria-hidden="true">
-            <RoomiLogo size={28} />
-          </span>
-          <div>
-            <strong>Roomi Demo Chat</strong>
-            <span>実Slackは使わず、この画面で介入を見せる</span>
-          </div>
-        </div>
-        <div className="slack-demo-topbar-actions">
-          <span className={`slack-demo-llm${room?.llm && room.llm !== "dummy" ? " live" : ""}`}>
-            LLM: {room?.llm || "—"}
-          </span>
-          <Link href="/demo/cast" className="slack-demo-topbar-link">
-            担当一覧
-          </Link>
-          <Link href="/" className="slack-demo-topbar-link">
-            ホーム
-          </Link>
-        </div>
-      </header>
-
       <div className="slack-demo-workspace">
         <aside className="slack-demo-sidebar" aria-label="チャンネルと関係者">
           <div className="slack-demo-workspace-name">
