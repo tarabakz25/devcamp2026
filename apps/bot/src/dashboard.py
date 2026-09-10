@@ -4,6 +4,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+from mentions import ROOMI_NAME, ROOMI_USER_ID, mentioned_user_ids
+
 
 def timeline(conn: sqlite3.Connection, thread_id: str) -> list[dict]:
     cur = conn.execute(
@@ -35,13 +37,24 @@ def stakeholder_graph(conn: sqlite3.Connection, thread_id: str) -> dict:
     for user_id, message_count in counts.items():
         holder = stakeholders.get(user_id, {})
         user = users.get(user_id, {})
+        is_agent = user_id == ROOMI_USER_ID
         nodes.append({
             "id": user_id,
-            "name": holder.get("user_name") or user.get("name") or user_id,
-            "role": holder.get("role") or user.get("role") or "",
-            "interests": holder.get("interests") or "",
-            "avatar": holder.get("avatar") or "",
+            "name": (
+                ROOMI_NAME if is_agent
+                else holder.get("user_name") or user.get("name") or user_id
+            ),
+            "role": "AI" if is_agent else holder.get("role") or user.get("role") or "",
+            "interests": (
+                "議論に入って、止まっている一点を問う"
+                if is_agent else holder.get("interests") or ""
+            ),
+            "avatar": (
+                "/roomi-logo.svg" if is_agent
+                else holder.get("avatar") or ""
+            ),
             "messages": message_count,
+            "kind": "agent" if is_agent else "person",
         })
 
     # 明示的な関係に加えて、連続する発言者を会話リンクとして集計する。
@@ -68,7 +81,7 @@ def stakeholder_graph(conn: sqlite3.Connection, thread_id: str) -> dict:
         }
 
     message_rows = conn.execute(
-        "SELECT user_id FROM messages WHERE thread_id = ? "
+        "SELECT user_id, text FROM messages WHERE thread_id = ? "
         "ORDER BY CAST(ts AS REAL), ts",
         (thread_id,),
     ).fetchall()
@@ -89,6 +102,26 @@ def stakeholder_graph(conn: sqlite3.Connection, thread_id: str) -> dict:
             "weight": 1,
             "directed": False,
         }
+
+    people = [{"user_id": node["id"], "name": node["name"]} for node in nodes]
+    for row in message_rows:
+        if row["user_id"] != ROOMI_USER_ID:
+            continue
+        for uid in mentioned_user_ids(row["text"] or "", people):
+            if uid not in node_ids or uid == ROOMI_USER_ID:
+                continue
+            key = tuple(sorted((ROOMI_USER_ID, uid)))
+            previous_edge = edges.get(key)
+            edges[key] = {
+                "source": ROOMI_USER_ID,
+                "target": uid,
+                "from_user": ROOMI_USER_ID,
+                "to_user": uid,
+                "label": "呼びかけ",
+                "weight": (previous_edge["weight"] + 1) if previous_edge else 1,
+                "directed": True,
+                "status": "intervention",
+            }
 
     return {"nodes": nodes, "edges": list(edges.values())}
 

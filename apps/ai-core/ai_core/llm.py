@@ -11,6 +11,12 @@ class LLMProvider(Protocol):
     def score_intervention(self, context_summary: str) -> tuple[float, float, str]: ...
     def needs_intervention(self, context_summary: str) -> tuple[bool, str]: ...
     def extract_stakeholders(self, messages: list[dict]) -> list[dict]: ...
+    def reply_as_roomi(
+        self,
+        history: str,
+        people: list[dict],
+        reason: str = "",
+    ) -> str: ...
     def reply_as_stakeholder(
         self,
         speaker_name: str,
@@ -53,6 +59,40 @@ class DummyLLM:
         ):
             return True, f"未解決っぽい発言が{q}件あるため"
         return False, "まだ介入不要"
+
+    def reply_as_roomi(
+        self,
+        history: str,
+        people: list[dict],
+        reason: str = "",
+    ) -> str:
+        named = [p for p in people if p.get("name")]
+        staff = [p for p in named if "スタッフ" in str(p.get("role") or "")]
+        others = [p for p in named if p not in staff]
+        picks: list[dict] = []
+        for group in (staff, others):
+            if group and len(picks) < 2:
+                picks.append(group[0])
+        if not picks:
+            picks = named[:2]
+        mentions = " ".join(f"@{p['name']}" for p in picks)
+        text = history or ""
+        if any(token in text for token in ("朝食", "1階", "2階", "居住")):
+            who = mentions or "みんな"
+            return (
+                f"ちょっと整理させて。今は場所の話と、生活を守る話が同じ土俵でぶつかってる。\n"
+                f"{who} の言い分はどれも朝の事情だと思う。"
+                "先に『誰の朝を守るか』を一つにしないと、会場だけ決めてもまた戻るよ。"
+            )
+        if mentions:
+            return (
+                f"{mentions} いま少し噛み合ってない気がする。"
+                "先に何を決めるかを一つにしないと、このままだと平行線のままだよ。"
+            )
+        return (
+            "いま少し噛み合ってない気がする。"
+            "先に何を決めるかを一つにしないと、このままだと平行線のままだよ。"
+        )
 
     def extract_stakeholders(self, messages: list[dict]) -> list[dict]:
         # LLMなしでは発言者一覧だけ返す
@@ -171,6 +211,37 @@ class OpenAIProvider:
             if stripped.startswith("0"):
                 return False, stripped[:120]
             return False, stripped[:120] or "判定不能"
+
+    def reply_as_roomi(
+        self,
+        history: str,
+        people: list[dict],
+        reason: str = "",
+    ) -> str:
+        roster = "\n".join(
+            f"- @{p.get('name') or p.get('user_id')} ({p.get('user_id')}) "
+            f"{p.get('role') or '関係者'}: {p.get('interests') or ''}"
+            for p in people[:20]
+        ) or "- 名前なし"
+        out = self._chat(
+            (
+                "あなたはSlackにいる「Roomi」。議論に入る一人の仲間で、書記でも司会でもない。"
+                "短く、やさしく、はっきり話す。会議のまとめ・見出し・箇条書き・JSONは禁止。"
+                "相手の事情をすくい上げてから、いま止まっている一点だけを問う。"
+                "特定の人に確認や呼びかけをするときだけ @名前 を使う。全員には付けない。"
+                "使える名前はこのリストだけ。リストにない名前は出さない。\n"
+                f"{roster}\n"
+                "1〜4文の日本語だけ返す。AIだと言わない。絵文字は多くて1つ。"
+            ),
+            (
+                f"介入理由: {reason or '議論が噛み合っていない'}\n\n"
+                f"発言ログ:\n{(history or '')[:5000]}\n\n"
+                "Roomiとして次の一言:"
+            ),
+        )
+        return (out or "").strip() or DummyLLM().reply_as_roomi(
+            history, people, reason
+        )
 
     def extract_stakeholders(self, messages: list[dict]) -> list[dict]:
         lines = [

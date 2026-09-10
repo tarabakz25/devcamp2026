@@ -69,6 +69,21 @@ def extract_stakeholders(messages: list[dict], llm) -> list[Stakeholder]:
     return out
 
 
+def compose_reply(
+    ctx: ThreadContext,
+    llm,
+    people: list[dict] | None = None,
+    reason: str = "",
+) -> str:
+    """Roomi本人として返す。テンプレの途中参加まとめは使わない。"""
+    people = people or []
+    if hasattr(llm, "reply_as_roomi"):
+        text = (llm.reply_as_roomi(ctx.summary, people, reason) or "").strip()
+        if text:
+            return text
+    return make_handoff(ctx, ctx.summary)
+
+
 def make_handoff(ctx: ThreadContext, summary: str) -> str:
     lines = [
         f"スレッド {ctx.thread_id} の途中参加向けまとめ",

@@ -10,13 +10,15 @@ export type CommunicationNode = {
   interests?: string;
   messages: number;
   avatar?: string;
+  kind?: "person" | "agent";
 };
 
 export type RelationshipStatus =
   | "discussion"
   | "review"
   | "resolved"
-  | "blocked";
+  | "blocked"
+  | "intervention";
 
 export const RELATIONSHIP_STATUS_META: Record<
   RelationshipStatus,
@@ -26,6 +28,7 @@ export const RELATIONSHIP_STATUS_META: Record<
   review: { label: "確認中", color: "#f3b65f" },
   resolved: { label: "合意済み", color: "#6ed8c3" },
   blocked: { label: "保留", color: "#ff8f7a" },
+  intervention: { label: "AI介入", color: "#7b88ff" },
 };
 
 export type CommunicationEdge = {
@@ -45,7 +48,7 @@ export type CommunicationGraphData = {
 export type GraphSelection = {
   id: string;
   label: string;
-  kind: "topic" | "person";
+  kind: "topic" | "person" | "agent";
   messages: number;
   role?: string;
   interests?: string;
@@ -54,7 +57,7 @@ export type GraphSelection = {
 
 type SimulationNode = d3.SimulationNodeDatum &
   CommunicationNode & {
-    kind: "topic" | "person";
+    kind: "topic" | "person" | "agent";
     label: string;
   };
 
@@ -75,10 +78,49 @@ type PopupInfo = {
   placement: "right" | "left";
 };
 
-const WIDTH = 1200;
-const HEIGHT = 700;
 const GRID_SIZE = 24;
 const TOPIC_NODE_ID = "__roomi_topic__";
+
+type LayoutBounds = {
+  width: number;
+  height: number;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  cx: number;
+  cy: number;
+  span: number;
+  boxW: number;
+  boxH: number;
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function layoutBounds(width: number, height: number): LayoutBounds {
+  const compact = width < 860;
+  const x0 = compact ? 24 : 308;
+  const y0 = compact ? 300 : 96;
+  const x1 = Math.max(x0 + 200, width - (compact ? 24 : 56));
+  const y1 = Math.max(y0 + 200, height - (compact ? 156 : 80));
+  const boxW = x1 - x0;
+  const boxH = y1 - y0;
+  return {
+    width,
+    height,
+    x0,
+    y0,
+    x1,
+    y1,
+    cx: x0 + boxW / 2,
+    cy: y0 + boxH * 0.56,
+    span: Math.min(boxW, boxH),
+    boxW,
+    boxH,
+  };
+}
 
 export const TOPIC_ICON_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="32" fill="#5b6cff"/><path d="M22 18v28m20-28v28M15 27h34M15 37h34" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/></svg>`
@@ -104,8 +146,38 @@ export function getFallbackAvatarSvg(name: string, seed: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+const ROOMI_AVATAR = "/roomi-logo.svg";
+
+function isAgentNode(node: { id: string; kind?: string; role?: string }) {
+  return node.kind === "agent" || node.id === "U-ROOMI";
+}
+
+function nodeAvatar(node: { kind?: string; id: string; avatar?: string; label?: string; name?: string }) {
+  if (node.kind === "topic") return TOPIC_ICON_SVG;
+  if (isAgentNode(node)) return node.avatar || ROOMI_AVATAR;
+  return node.avatar || getFallbackAvatarSvg(node.label || node.name || node.id, node.id);
+}
+
+export function MentionText({ text }: { text: string }) {
+  const parts = text.split(/(@[^\s@]+)/g);
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.startsWith("@") ? (
+          <span key={index} className="roomi-mention">
+            {part}
+          </span>
+        ) : (
+          <span key={index}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
 function nodeRadius(node: SimulationNode) {
   if (node.kind === "topic") return 36;
+  if (node.kind === "agent") return 32;
   return Math.max(26, Math.min(34, 22 + Math.sqrt(node.messages) * 3));
 }
 
@@ -140,6 +212,26 @@ export default function CommunicationTopicGraph({
   const markerPrefix = useId().replaceAll(":", "");
 
   const [popup, setPopup] = useState<PopupInfo | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const read = () => {
+      const rect = el.getBoundingClientRect();
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      setSize((prev) =>
+        Math.abs(prev.width - width) < 12 && Math.abs(prev.height - height) < 12
+          ? prev
+          : { width, height }
+      );
+    };
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   function changeZoom(scale: number) {
     if (!svgRef.current || !zoomRef.current) return;
@@ -163,34 +255,52 @@ export default function CommunicationTopicGraph({
   }, [activePersonId]);
 
   useEffect(() => {
-    if (!svgRef.current || data.nodes.length === 0) {
+    if (!svgRef.current || data.nodes.length === 0 || size.width < 40) {
       return;
     }
 
+    const bounds = layoutBounds(size.width, size.height);
     const topicNode: SimulationNode = {
       id: TOPIC_NODE_ID,
       name: topicLabel,
       label: topicLabel,
       messages: data.nodes.reduce((total, node) => total + node.messages, 0),
       kind: "topic",
-      x: WIDTH / 2,
-      y: HEIGHT / 2,
+      x: bounds.cx,
+      y: bounds.cy,
+      fx: bounds.cx,
+      fy: bounds.cy,
     };
     const people: SimulationNode[] = data.nodes.map((node) => ({
       ...node,
       label: node.name || node.id,
-      kind: "person",
+      kind: isAgentNode(node) ? "agent" : "person",
     }));
+    const { boxW, boxH } = bounds;
+    people.forEach((person, index) => {
+      if (person.kind === "agent") {
+        person.x = bounds.cx - boxW * 0.2;
+        person.y = bounds.cy - boxH * 0.06;
+        return;
+      }
+      const others = people.filter((item) => item.kind !== "agent");
+      const slot = others.indexOf(person);
+      const angle = (slot / Math.max(others.length, 1)) * Math.PI * 2 - Math.PI / 2;
+      person.x = bounds.cx + Math.cos(angle) * (boxW * 0.34);
+      person.y = bounds.cy + Math.sin(angle) * (boxH * 0.3);
+    });
     const nodes = [topicNode, ...people];
-    const topicLinks: SimulationLink[] = people.map((node) => ({
-      source: TOPIC_NODE_ID,
-      target: node.id,
-      label: `${node.messages}件の発言`,
-      weight: Math.max(1, node.messages),
-      kind: "topic",
-      directed: false,
-      labelIndex: -1,
-    }));
+    const topicLinks: SimulationLink[] = people
+      .filter((node) => node.kind !== "agent")
+      .map((node) => ({
+        source: TOPIC_NODE_ID,
+        target: node.id,
+        label: `${node.messages}件の発言`,
+        weight: Math.max(1, node.messages),
+        kind: "topic",
+        directed: false,
+        labelIndex: -1,
+      }));
     const conversationLinks: SimulationLink[] = data.edges.map((edge, index) => {
       const status = normalizeRelationshipStatus(edge.status);
       return {
@@ -320,7 +430,7 @@ export default function CommunicationTopicGraph({
       .attr(
         "aria-label",
         (item) =>
-          `${item.kind === "topic" ? "トピック" : "参加者"} ${item.label}、${item.messages}件`
+          `${item.kind === "topic" ? "トピック" : item.kind === "agent" ? "エージェント" : "参加者"} ${item.label}、${item.messages}件`
       )
       .on("click", (event: MouseEvent, item: SimulationNode) => {
         event.stopPropagation();
@@ -403,10 +513,7 @@ export default function CommunicationTopicGraph({
       .attr("width", (d) => nodeRadius(d) * 2)
       .attr("height", (d) => nodeRadius(d) * 2)
       .attr("preserveAspectRatio", "xMidYMid slice")
-      .attr("href", (d) => {
-        if (d.kind === "topic") return TOPIC_ICON_SVG;
-        return d.avatar || getFallbackAvatarSvg(d.label, d.id);
-      });
+      .attr("href", (d) => nodeAvatar(d));
 
     // ユーザー名 / トピック名ラベル
     node
@@ -418,6 +525,11 @@ export default function CommunicationTopicGraph({
         item.label.length > 14 ? `${item.label.slice(0, 13)}…` : item.label
       );
 
+    const topicDist = clamp(boxH * 0.32, 170, 320);
+    const convoDist = clamp(bounds.span * 0.34, 160, 340);
+    const charge = -clamp(bounds.span * 2.8, 1000, 2300);
+    const collidePad = clamp(bounds.span * 0.1, 58, 96);
+
     const simulation = d3
       .forceSimulation(nodes)
       .force(
@@ -425,21 +537,36 @@ export default function CommunicationTopicGraph({
         d3
           .forceLink<SimulationNode, SimulationLink>(links)
           .id((item) => item.id)
-          .distance((edge) => (edge.kind === "topic" ? 210 : 160))
-          .strength((edge) => (edge.kind === "topic" ? 0.35 : 0.55))
+          .distance((edge) => (edge.kind === "topic" ? topicDist : convoDist))
+          .strength((edge) => (edge.kind === "topic" ? 0.16 : 0.22))
       )
-      .force("charge", d3.forceManyBody().strength(-800))
-      .force("center", d3.forceCenter(WIDTH / 2, HEIGHT / 2))
+      .force("charge", d3.forceManyBody().strength(charge).distanceMin(56))
+      .force("x", d3.forceX(bounds.cx).strength(0.02))
+      .force("y", d3.forceY(bounds.cy).strength(0.02))
       .force(
         "collision",
-        d3.forceCollide<SimulationNode>().radius((item) => nodeRadius(item) + 48)
-      );
+        d3
+          .forceCollide<SimulationNode>()
+          .radius((item) =>
+            nodeRadius(item) + collidePad + (item.kind === "agent" ? 28 : 0)
+          )
+          .strength(0.9)
+          .iterations(3)
+      )
+      .velocityDecay(0.28);
 
     const renderTick = () => {
-      const displayPosition = (item: SimulationNode) => ({
-        x: Math.max(54, Math.min(WIDTH - 54, item.x ?? 0)),
-        y: Math.max(54, Math.min(HEIGHT - 54, item.y ?? 0)),
-      });
+      const displayPosition = (item: SimulationNode) => {
+        const radius = nodeRadius(item);
+        return {
+          x: clamp(item.x ?? bounds.cx, bounds.x0 + radius, bounds.x1 - radius),
+          y: clamp(
+            item.y ?? bounds.cy,
+            bounds.y0 + radius,
+            bounds.y1 - radius - 18
+          ),
+        };
+      };
       const coordinates = (edge: SimulationLink) => {
         const source = edge.source as SimulationNode;
         const target = edge.target as SimulationNode;
@@ -458,7 +585,7 @@ export default function CommunicationTopicGraph({
         const labelProgress = 0.38 + (edge.labelIndex % 3) * 0.12;
         const labelOffset =
           (edge.labelIndex % 2 === 0 ? 1 : -1) *
-          (14 + Math.floor(edge.labelIndex / 2) * 3);
+          (20 + Math.floor(edge.labelIndex / 2) * 6);
         return {
           x1: sourceX + (dx / distance) * sourcePadding,
           y1: sourceY + (dy / distance) * sourcePadding,
@@ -521,17 +648,18 @@ export default function CommunicationTopicGraph({
       const svgRect = svgElement.getBoundingClientRect();
       const stageRect = graphStage.getBoundingClientRect();
       const renderedScale =
-        Math.min(svgRect.width / WIDTH, svgRect.height / HEIGHT) || 1;
+        Math.min(svgRect.width / bounds.width, svgRect.height / bounds.height) ||
+        1;
       const svgOriginX =
         svgRect.left -
         stageRect.left -
         graphStage.clientLeft +
-        (svgRect.width - WIDTH * renderedScale) / 2;
+        (svgRect.width - bounds.width * renderedScale) / 2;
       const svgOriginY =
         svgRect.top -
         stageRect.top -
         graphStage.clientTop +
-        (svgRect.height - HEIGHT * renderedScale) / 2;
+        (svgRect.height - bounds.height * renderedScale) / 2;
       graphStage.style.setProperty(
         "--graph-grid-x",
         `${svgOriginX + transform.x * renderedScale + transform.k * (1 - svgOriginX)}px`
@@ -578,7 +706,7 @@ export default function CommunicationTopicGraph({
       graphStage?.style.removeProperty("--graph-grid-size");
       zoomRef.current = null;
     };
-  }, [data, onSelectionChange, topicLabel]);
+  }, [data, onSelectionChange, topicLabel, size.width, size.height]);
 
   if (data.nodes.length === 0) {
     return (
@@ -592,7 +720,7 @@ export default function CommunicationTopicGraph({
     <div className="topic-graph-canvas" ref={containerRef}>
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        viewBox={`0 0 ${Math.max(size.width, 1)} ${Math.max(size.height, 1)}`}
         preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label={`${threadId}のコミュニケーショングラフ`}
@@ -626,18 +754,17 @@ export default function CommunicationTopicGraph({
             <div className="roomi-popup-avatar-wrap">
               <img
                 className="roomi-popup-avatar"
-                src={
-                  popup.item.kind === "topic"
-                    ? TOPIC_ICON_SVG
-                    : popup.item.avatar ||
-                      getFallbackAvatarSvg(popup.item.label, popup.item.id)
-                }
+                src={nodeAvatar(popup.item)}
                 alt={popup.item.label}
               />
             </div>
             <div className="roomi-popup-title-info">
               <span className="roomi-popup-kicker">
-                {popup.item.kind === "topic" ? "トピック" : "参加者"}
+                {popup.item.kind === "topic"
+                  ? "トピック"
+                  : popup.item.kind === "agent"
+                    ? "エージェント"
+                    : "参加者"}
               </span>
               <h4 className="roomi-popup-name">{popup.item.label}</h4>
               {popup.item.role && (
@@ -661,7 +788,7 @@ export default function CommunicationTopicGraph({
               </div>
             )}
 
-            {popup.item.kind === "person" && (
+            {popup.item.kind !== "topic" && (
               <div className="roomi-popup-detail-row">
                 <span className="roomi-popup-meta-label">つながり</span>
                 <div className="roomi-popup-tags">

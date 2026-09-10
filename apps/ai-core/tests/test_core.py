@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ai_core import (
     build_context,
+    compose_reply,
     decide,
     get_llm,
     judge_intervention,
@@ -70,6 +71,26 @@ class TestCore(unittest.TestCase):
         no, idle = llm.needs_intervention("了解です。搬入場所はA棟1階です。")
         self.assertFalse(no)
         self.assertIn("介入不要", idle)
+
+    def test_compose_reply_mentions_people(self):
+        llm = get_llm("dummy")
+        msgs = [
+            {"user_id": "U-SASAKI", "text": "1階は居住エリアなので2階にしてください", "is_mention": 0},
+            {"user_id": "U-SAKUMA", "text": "朝食の準備は1階の方が楽で続けたい", "is_mention": 0},
+        ]
+        ctx = build_context(msgs, "T", "C1")
+        text = compose_reply(
+            ctx,
+            llm,
+            [
+                {"user_id": "U-SASAKI", "name": "高橋さくら", "role": "寮スタッフ", "interests": "居住"},
+                {"user_id": "U-SAKUMA", "name": "中村蓮", "role": "学生", "interests": "1階"},
+            ],
+            "方針が食い違っている",
+        )
+        self.assertIn("@高橋さくら", text)
+        self.assertIn("@中村蓮", text)
+        self.assertNotIn("途中参加", text)
 
     def test_dummy_stakeholder_reply(self):
         llm = get_llm("dummy")

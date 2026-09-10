@@ -1,10 +1,10 @@
 """ai-core単体デモ: PYTHONPATH=apps/ai-core python -m ai_core"""
 from . import (
     build_context,
+    compose_reply,
     decide,
     get_llm,
     judge_intervention,
-    make_handoff,
     observe,
     record,
 )
@@ -44,7 +44,11 @@ def main() -> None:
     print(f"decide act={decision.action} reason={decision.reason}")
     if decision.should_act:
         record(rules, "DEMO-1", result, decision.action)
-        print(make_handoff(ctx, summary))
+        people = [
+            {"user_id": uid, "name": uid, "role": "", "interests": ""}
+            for uid in ctx.participants
+        ]
+        print(compose_reply(ctx, llm, people, result.reason))
     else:
         print("silent: 介入なし")
 

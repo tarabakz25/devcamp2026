@@ -10,13 +10,14 @@ import type {
   GraphSelection,
 } from "./components/CommunicationTopicGraph";
 import { COMMUNICATION_DEMO } from "./mocks/communicationDemo";
-import type { AuditItem, TimelineItem } from "./mocks/communicationDemo";
+import type { AuditItem } from "./mocks/communicationDemo";
 import { signIn, signOut, useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import GoogleIcon from "./components/GoogleIcon";
+import MaterialIcon from "./components/MaterialIcon";
 import RoomiLogo from "./components/RoomiLogo";
 
-type MenuItem = "graph" | "members" | "ai" | "account";
+type MenuItem = "top" | "members" | "agent" | "account";
 
 export default function Page() {
   const { data: session, isPending: isSessionPending } = useSession();
@@ -24,8 +25,7 @@ export default function Page() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const [activeMenu, setActiveMenu] = useState<MenuItem>("graph");
-  const [timeline] = useState<TimelineItem[]>(COMMUNICATION_DEMO.timeline);
+  const [activeMenu, setActiveMenu] = useState<MenuItem>("top");
   const [audit] = useState<AuditItem[]>(COMMUNICATION_DEMO.audit);
   const [graph] = useState<CommunicationGraphData>(COMMUNICATION_DEMO.graph);
   const [, setSelection] = useState<GraphSelection | null>(null);
@@ -58,207 +58,62 @@ export default function Page() {
   const topicLabel = COMMUNICATION_DEMO.title;
   const loadedThreadId = COMMUNICATION_DEMO.threadId;
   const topicAudit = audit.filter((item) => item.thread_id === loadedThreadId);
-  const messageCount = graph.nodes.reduce((total, node) => total + node.messages, 0);
-
   function handleSelectMember(id: string) {
     setSelectedPersonId(id);
-    setActiveMenu("graph");
+    setActiveMenu("top");
   }
 
   return (
     <main className="roomi-app-shell">
       {/* サイドバー（Boxデザイン: フィールド上Popupとしてフロート表示） */}
       <aside className="roomi-sidebar-nav" aria-label="ナビゲーション">
-        {/* 上部: workspace名 */}
         <div className="roomi-workspace-header">
           <div className="roomi-workspace-logo" aria-hidden="true">
-            <RoomiLogo size={36} />
+            <RoomiLogo size={44} />
           </div>
           <div className="roomi-workspace-info">
-            <span className="roomi-workspace-title">Roomi Workspace</span>
-            <span className="roomi-workspace-meta">DevCamp 2026</span>
+            <span className="roomi-workspace-title">Roomi</span>
+            <span className="roomi-workspace-meta">神山まるごと高専</span>
           </div>
         </div>
 
-        {/* メニューアイテム: グラフ、メンバー、AI、アカウント */}
         <nav className="roomi-menu-list" aria-label="メインメニュー">
           <button
             type="button"
-            className={`roomi-menu-item${activeMenu === "graph" ? " active" : ""}`}
-            onClick={() => setActiveMenu("graph")}
+            className={`roomi-menu-item${activeMenu === "top" ? " active" : ""}`}
+            onClick={() => setActiveMenu("top")}
           >
-            <svg
-              className="roomi-menu-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="18" cy="5" r="3" />
-              <circle cx="6" cy="12" r="3" />
-              <circle cx="18" cy="19" r="3" />
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-            </svg>
-            <span className="roomi-menu-label">グラフ</span>
+            <MaterialIcon name="home" className="roomi-menu-icon" filled={activeMenu === "top"} />
+            <span className="roomi-menu-label">トップ</span>
           </button>
-
-          <button
-            type="button"
-            className="roomi-menu-item"
-            onClick={() => router.push("/demo")}
-          >
-            <svg
-              className="roomi-menu-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            <span className="roomi-menu-label">デモチャット</span>
-          </button>
-
-          <button
-            type="button"
-            className="roomi-menu-item"
-            onClick={() => router.push("/demo/cast")}
-          >
-            <svg
-              className="roomi-menu-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <path d="M7 8h10M7 12h6M7 16h8" />
-            </svg>
-            <span className="roomi-menu-label">担当一覧</span>
-          </button>
-
           <button
             type="button"
             className={`roomi-menu-item${activeMenu === "members" ? " active" : ""}`}
             onClick={() => setActiveMenu("members")}
           >
-            <svg
-              className="roomi-menu-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            <span className="roomi-menu-label">メンバー</span>
-            <span className="roomi-menu-badge">{graph.nodes.length}</span>
+            <MaterialIcon name="group" className="roomi-menu-icon" filled={activeMenu === "members"} />
+            <span className="roomi-menu-label">メンバーリスト</span>
           </button>
-
           <button
             type="button"
-            className={`roomi-menu-item${activeMenu === "ai" ? " active" : ""}`}
-            onClick={() => setActiveMenu("ai")}
+            className="roomi-menu-item"
+            onClick={() => router.push("/demo")}
           >
-            <svg
-              className="roomi-menu-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-            </svg>
-            <span className="roomi-menu-label">AI</span>
-            {topicAudit.length > 0 && (
-              <span className="roomi-menu-badge ai">{topicAudit.length}</span>
-            )}
+            <MaterialIcon name="forum" className="roomi-menu-icon" />
+            <span className="roomi-menu-label">ディスカッション</span>
           </button>
-
           <button
             type="button"
-            className={`roomi-menu-item${activeMenu === "account" ? " active" : ""}`}
-            onClick={() => setActiveMenu("account")}
+            className={`roomi-menu-item${activeMenu === "agent" ? " active" : ""}`}
+            onClick={() => setActiveMenu("agent")}
           >
-            <svg
-              className="roomi-menu-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            <span className="roomi-menu-label">アカウント</span>
+            <MaterialIcon name="smart_toy" className="roomi-menu-icon" filled={activeMenu === "agent"} />
+            <span className="roomi-menu-label">エージェント</span>
           </button>
         </nav>
 
         {/* メニュータブごとのサブコンテンツエリア */}
         <div className="roomi-sidebar-content">
-          {activeMenu === "graph" && (
-            <div className="roomi-pane-graph">
-              {/* トピック概要 */}
-              <div className="roomi-topic-box">
-                <span className="roomi-pane-kicker">現在のトピック</span>
-                <h3 className="roomi-topic-title">{topicLabel}</h3>
-                <div className="roomi-stats-grid">
-                  <div className="roomi-stat-chip">
-                    <span className="chip-label">参加者</span>
-                    <span className="chip-val">{graph.nodes.length}人</span>
-                  </div>
-                  <div className="roomi-stat-chip">
-                    <span className="chip-label">関係</span>
-                    <span className="chip-val">{graph.edges.length}本</span>
-                  </div>
-                  <div className="roomi-stat-chip">
-                    <span className="chip-label">発言</span>
-                    <span className="chip-val">{messageCount}件</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* タイムライン: Boxに入れずそのまま下に表示 (縦上限はサイドバーのサイズ) */}
-              <div className="roomi-timeline-section">
-                <div className="roomi-timeline-header">
-                  <span className="roomi-pane-kicker">タイムライン</span>
-                  <span className="count-tag">{timeline.length}件</span>
-                </div>
-                <div className="roomi-timeline-list">
-                  {timeline.map((msg, idx) => (
-                    <div key={idx} className="roomi-timeline-item">
-                      <div className="timeline-item-meta">
-                        <span className="user-name">
-                          {msg.user_name ||
-                            graph.nodes.find((n) => n.id === msg.user_id)?.name ||
-                            msg.user_id}
-                        </span>
-                        {msg.ts && <span className="timeline-ts">{msg.ts}</span>}
-                      </div>
-                      <p className="msg-text">{msg.text}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
           {activeMenu === "members" && (
             <div className="roomi-pane-members">
               <span className="roomi-pane-kicker">参加メンバー一覧</span>
@@ -266,35 +121,48 @@ export default function Page() {
                 メンバーをクリックするとグラフ上で位置を確認できます
               </p>
               <div className="roomi-member-list">
-                {graph.nodes.map((node) => (
-                  <button
-                    key={node.id}
-                    type="button"
-                    className={`roomi-member-card${selectedPersonId === node.id ? " selected" : ""}`}
-                    onClick={() => handleSelectMember(node.id)}
-                  >
-                    <img
-                      className="member-avatar"
-                      src={node.avatar || getFallbackAvatarSvg(node.name || node.id, node.id)}
-                      alt={node.name || node.id}
-                    />
-                    <div className="member-info">
-                      <div className="member-name-row">
-                        <span className="member-name">{node.name || node.id}</span>
-                        <span className="member-count">{node.messages}発言</span>
+                {[...graph.nodes]
+                  .sort((a, b) => {
+                    const agentA = a.kind === "agent" || a.id === "U-ROOMI" ? 0 : 1;
+                    const agentB = b.kind === "agent" || b.id === "U-ROOMI" ? 0 : 1;
+                    return agentA - agentB;
+                  })
+                  .map((node) => {
+                  const isAgent = node.kind === "agent" || node.id === "U-ROOMI";
+                  return (
+                    <button
+                      key={node.id}
+                      type="button"
+                      className={`roomi-member-card${selectedPersonId === node.id ? " selected" : ""}${isAgent ? " agent" : ""}`}
+                      onClick={() => handleSelectMember(node.id)}
+                    >
+                      <img
+                        className="member-avatar"
+                        src={
+                          isAgent
+                            ? node.avatar || "/roomi-logo.svg"
+                            : node.avatar || getFallbackAvatarSvg(node.name || node.id, node.id)
+                        }
+                        alt={node.name || node.id}
+                      />
+                      <div className="member-info">
+                        <div className="member-name-row">
+                          <span className="member-name">{node.name || node.id}</span>
+                          <span className="member-count">{node.messages}発言</span>
+                        </div>
+                        {node.role && <span className="member-role">{node.role}</span>}
+                        {node.interests && (
+                          <span className="member-interests">{node.interests}</span>
+                        )}
                       </div>
-                      {node.role && <span className="member-role">{node.role}</span>}
-                      {node.interests && (
-                        <span className="member-interests">{node.interests}</span>
-                      )}
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {activeMenu === "ai" && (
+          {activeMenu === "agent" && (
             <div className="roomi-pane-ai">
               <span className="roomi-pane-kicker">AI 介入ログ</span>
               {topicAudit.length === 0 ? (
@@ -414,14 +282,6 @@ export default function Page() {
             <button
               type="button"
               className="roomi-footer-user"
-              style={{
-                background: "none",
-                border: "none",
-                width: "100%",
-                padding: 0,
-                textAlign: "left",
-                cursor: "pointer",
-              }}
               onClick={() => setActiveMenu("account")}
             >
               <img
@@ -436,19 +296,22 @@ export default function Page() {
                 <span className="footer-user-name">
                   {session.user.name}
                 </span>
-                <span className="footer-user-role">
-                  Google認証済
+                <span className="footer-user-email">
+                  {session.user.email}
                 </span>
               </div>
             </button>
           ) : (
             <button
               type="button"
-              className="roomi-footer-login-btn"
+              className="roomi-footer-user"
               onClick={() => setActiveMenu("account")}
             >
-              <GoogleIcon className="roomi-google-icon" />
-              <span>Googleログイン</span>
+              <span className="footer-avatar placeholder" aria-hidden="true" />
+              <div className="footer-user-meta">
+                <span className="footer-user-name">ログイン</span>
+                <span className="footer-user-email">Googleアカウント</span>
+              </div>
             </button>
           )}
         </div>
@@ -465,7 +328,11 @@ export default function Page() {
           <div className="floating-badges">
             <span className="mock-badge">デモ</span>
             <span className="floating-stats">
-              {graph.nodes.length} 人のメンバー · {graph.edges.length} の関係性
+              {graph.nodes.filter((node) => node.kind !== "agent").length} 人のメンバー
+              {" · "}
+              Roomi 介入中
+              {" · "}
+              {graph.edges.length} の関係性
             </span>
           </div>
         </div>
@@ -486,6 +353,9 @@ export default function Page() {
           </span>
           <span>
             <i className="person" aria-hidden="true" />メンバー
+          </span>
+          <span>
+            <i className="agent" aria-hidden="true" />Roomi
           </span>
           {Object.entries(RELATIONSHIP_STATUS_META).map(([status, meta]) => (
             <span key={status}>

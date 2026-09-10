@@ -13,8 +13,8 @@
   --color-text-muted: #8895ad;
   --color-border: #232c42;
 
-  --font-display: "Poppins", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Lexend Deca", "Sawarabi Gothic", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: "Sawarabi Gothic", "Lexend Deca", -apple-system, BlinkMacSystemFont, sans-serif;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -75,34 +75,30 @@ input {
 .roomi-sidebar-nav {
   position: absolute;
   z-index: 20;
-  top: 24px;
-  bottom: 24px;
-  left: 24px;
-  width: 310px;
+  top: 20px;
+  bottom: 20px;
+  left: 20px;
+  width: 268px;
   display: flex;
   flex-direction: column;
-  background: rgba(13, 18, 30, 0.94);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(130, 145, 181, 0.2);
-  border-radius: var(--radius-xl);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(123, 136, 255, 0.08);
+  background: #141a28;
+  border: 1px solid rgba(130, 145, 181, 0.14);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }
 
-/* 上部: Workspace名 */
 .roomi-workspace-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--color-border);
-  background: rgba(15, 21, 35, 0.92);
+  padding: 28px 22px 20px;
 }
 
 .roomi-workspace-logo {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   flex-shrink: 0;
 }
@@ -116,70 +112,90 @@ input {
 .roomi-workspace-info {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   overflow: hidden;
 }
 
 .roomi-workspace-title {
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: 26px;
   font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
   color: #fff;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .roomi-workspace-meta {
-  font-size: 11px;
-  color: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.3;
+  color: #8b95a8;
 }
 
-/* メニューアイテム (グラフ、メンバー、AI、アカウント) */
 .roomi-menu-list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--color-border);
+  gap: 4px;
+  padding: 8px 16px 12px;
 }
 
 .roomi-menu-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  padding: 9px 12px;
+  padding: 12px 10px;
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   background: transparent;
-  color: #a2b0c9;
-  font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 500;
+  color: #e8edf5;
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.3;
   text-align: left;
   cursor: pointer;
-  transition: all 140ms ease;
+  transition: background 140ms ease, color 140ms ease;
 }
 
 .roomi-menu-item:hover {
-  background: rgba(123, 136, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
   color: #fff;
 }
 
 .roomi-menu-item.active {
-  background: rgba(123, 136, 255, 0.16);
+  background: transparent;
   color: #fff;
-  font-weight: 600;
+}
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: 400;
+  font-style: normal;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
 }
 
 .roomi-menu-icon {
-  width: 17px;
-  height: 17px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
+  color: #c5cdd8;
+  font-size: 22px;
 }
 
-.roomi-menu-item.active .roomi-menu-icon {
-  color: var(--color-primary);
+.roomi-menu-item.active .roomi-menu-icon,
+.roomi-menu-item:hover .roomi-menu-icon {
+  color: #fff;
 }
 
 .roomi-menu-label {
@@ -207,7 +223,7 @@ input {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 14px 14px;
+  padding: 4px 16px 8px;
   scrollbar-color: var(--color-border) transparent;
   scrollbar-width: thin;
 }
@@ -340,9 +356,30 @@ input {
 }
 
 .timeline-item-meta .user-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-weight: 600;
   color: var(--color-secondary);
+}
+
+.roomi-timeline-item.agent .user-name {
+  color: #c5cbff;
+}
+
+.timeline-agent-tag {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(123, 136, 255, 0.22);
+  color: #c5cbff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.roomi-timeline-item.agent .msg-text {
+  color: #e4e8ff;
 }
 
 .timeline-item-meta .timeline-ts {
@@ -386,6 +423,11 @@ input {
 .roomi-member-card.selected {
   border-color: var(--color-primary);
   background: rgba(123, 136, 255, 0.12);
+}
+
+.roomi-member-card.agent {
+  border-color: rgba(123, 136, 255, 0.45);
+  background: rgba(123, 136, 255, 0.08);
 }
 
 .member-avatar {
@@ -548,41 +590,60 @@ input {
   color: var(--color-secondary);
 }
 
-/* サイドバー下部 */
 .roomi-sidebar-footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--color-border);
-  background: rgba(15, 21, 35, 0.95);
+  padding: 18px 22px 22px;
   flex-shrink: 0;
 }
 
 .roomi-footer-user {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
 }
 
 .footer-avatar {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   object-fit: cover;
+  background: #3a4254;
+  flex-shrink: 0;
+}
+
+.footer-avatar.placeholder {
+  display: inline-block;
 }
 
 .footer-user-meta {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .footer-user-name {
-  font-size: 12px;
-  font-weight: 600;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
   color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+.footer-user-email,
 .footer-user-role {
-  font-size: 10px;
-  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: #8b95a8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ==========================================================================
@@ -621,7 +682,7 @@ input {
   position: absolute;
   z-index: 10;
   top: 24px;
-  left: 358px;
+  left: 304px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -731,6 +792,11 @@ input {
   stroke-dasharray: 7 6;
 }
 
+.topic-graph-link.conversation.status-intervention {
+  stroke: #7b88ff;
+  stroke-opacity: 0.95;
+}
+
 .topic-graph-link-label {
   font-family: var(--font-body);
   font-size: 9px;
@@ -759,6 +825,10 @@ input {
   fill: #ffb7a9;
 }
 
+.topic-graph-link-label.status-intervention {
+  fill: #c5cbff;
+}
+
 /* ノード：クリックしたときに枠線が出ないようにする */
 .topic-graph-node {
   cursor: pointer;
@@ -781,6 +851,15 @@ input {
 
 .topic-graph-circle.topic {
   fill: var(--color-primary);
+}
+
+.topic-graph-circle.agent {
+  fill: #1a2140;
+}
+
+.topic-graph-node.agent:hover .topic-graph-circle,
+.topic-graph-node.agent.selected .topic-graph-circle {
+  filter: drop-shadow(0 0 14px rgba(123, 136, 255, 0.9));
 }
 
 /* 枠線は出さず、ソフトなグローのみ適用 */
@@ -815,6 +894,8 @@ input {
   position: absolute;
   z-index: 50;
   width: 290px;
+  max-height: min(380px, calc(100% - 24px));
+  overflow-y: auto;
   padding: 14px;
   border-radius: var(--radius-lg);
   background: rgba(16, 22, 36, 0.95);
@@ -1076,10 +1157,12 @@ input {
   position: absolute;
   z-index: 10;
   bottom: 24px;
-  left: 358px;
+  left: 304px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  max-width: calc(100% - 336px);
   padding: 8px 14px;
   border-radius: 999px;
   background: rgba(15, 21, 35, 0.85);
@@ -1110,6 +1193,10 @@ input {
 
 .roomi-legend i.person {
   background: var(--color-secondary);
+}
+
+.roomi-legend i.agent {
+  background: var(--color-primary);
 }
 
 .roomi-legend i.relation {
@@ -1154,6 +1241,20 @@ input {
     transparent 4px 7px
   );
   color: #ff8f7a;
+}
+
+.roomi-legend i.intervention {
+  background: #7b88ff;
+  color: #7b88ff;
+}
+
+.roomi-mention {
+  display: inline;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(123, 136, 255, 0.2);
+  color: #c5cbff;
+  font-weight: 600;
 }
 
 .roomi-visually-hidden {
@@ -1932,6 +2033,11 @@ input {
   line-height: 22px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.slack-demo-msg-body .roomi-mention {
+  background: rgba(123, 136, 255, 0.22);
+  color: #d7dbff;
 }
 
 .slack-demo-typing {

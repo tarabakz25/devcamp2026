@@ -12,7 +12,8 @@ sys.path.insert(0, str(AI_CORE))
 
 from ai_core import get_llm, resolve_llm_name
 from actions import post_message
-from pipeline import process_event
+from mentions import to_slack_text
+from pipeline import process_event, thread_people
 from store import connect
 
 
@@ -37,7 +38,8 @@ def handle_message(payload: dict, conn, llm) -> None:
     print(f"[{channel_id}/{thread_id}] {out.action}: {out.reason}")
     if not out.should_act:
         return
-    post_message(channel_id, thread_id, out.bot_text, out.action)
+    text = to_slack_text(out.bot_text, thread_people(conn, thread_id))
+    post_message(channel_id, thread_id, text, out.action)
 
 
 def main() -> None:

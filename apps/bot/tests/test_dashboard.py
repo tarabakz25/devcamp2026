@@ -7,7 +7,25 @@ sys.path.insert(0, str(BOT_SRC))
 
 from dashboard import stakeholder_graph
 from gateway import normalize_event
+from mentions import mentioned_user_ids, to_slack_text
 from store import connect, save_message
+
+
+class TestMentions(unittest.TestCase):
+    def test_extracts_names_and_slackifies(self):
+        people = [
+            {"user_id": "U-SASAKI", "name": "高橋さくら"},
+            {"user_id": "U-SAKUMA", "name": "中村蓮"},
+        ]
+        text = "@高橋さくら と @中村蓮、いま一点だけ"
+        self.assertEqual(
+            mentioned_user_ids(text, people),
+            ["U-SASAKI", "U-SAKUMA"],
+        )
+        self.assertEqual(
+            to_slack_text(text, people),
+            "<@U-SASAKI> と <@U-SAKUMA>、いま一点だけ",
+        )
 
 
 class TestDashboard(unittest.TestCase):
@@ -52,6 +70,39 @@ class TestDashboard(unittest.TestCase):
                 "directed": False,
             }],
         )
+
+    def test_roomi_mention_becomes_intervention_edge(self):
+        conn = connect()
+        for event in [
+            {"type": "message", "channel": "C1", "user": "U1",
+             "text": "1階でやりたい", "ts": "1"},
+            {"type": "message", "channel": "C1", "user": "U2",
+             "text": "2階にしてください", "ts": "2", "thread_ts": "1"},
+            {"type": "message", "channel": "C1", "user": "U-ROOMI",
+             "text": "@葵 いま一点だけ確認させて", "ts": "3", "thread_ts": "1"},
+        ]:
+            message = normalize_event(event)
+            assert message is not None
+            save_message(conn, message)
+
+        conn.execute(
+            "INSERT INTO stakeholders "
+            "(thread_id, user_id, user_name, role, interests, message_count) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            ("C1-1", "U1", "葵", "学生", "1階", 1),
+        )
+        conn.commit()
+
+        graph = stakeholder_graph(conn, "C1-1")
+        roomi = next(node for node in graph["nodes"] if node["id"] == "U-ROOMI")
+        self.assertEqual(roomi["kind"], "agent")
+        self.assertEqual(roomi["name"], "Roomi")
+        mention = next(
+            edge for edge in graph["edges"] if edge.get("status") == "intervention"
+        )
+        self.assertEqual(mention["source"], "U-ROOMI")
+        self.assertEqual(mention["target"], "U1")
+        self.assertEqual(mention["label"], "呼びかけ")
 
     def test_stakeholder_graph_is_empty_for_unknown_thread(self):
         self.assertEqual(

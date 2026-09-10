@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { getFallbackAvatarSvg } from "./CommunicationTopicGraph";
+import { MentionText, getFallbackAvatarSvg } from "./CommunicationTopicGraph";
 import RoomiLogo from "./RoomiLogo";
 
 type Stakeholder = {
@@ -613,7 +613,9 @@ export default function SlackDemoChat() {
                         <time dateTime={message.ts}>{formatTs(message.ts)}</time>
                       </header>
                     )}
-                    <p>{message.text}</p>
+                    <p>
+                      <MentionText text={message.text} />
+                    </p>
                   </div>
                 </article>
               );

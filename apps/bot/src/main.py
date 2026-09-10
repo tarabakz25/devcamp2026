@@ -12,10 +12,10 @@ sys.path.insert(0, str(AI_CORE))
 
 from ai_core import (
     build_context,
+    compose_reply,
     decide,
     get_llm,
     judge_intervention,
-    make_handoff,
     observe,
     record,
 )
@@ -60,9 +60,13 @@ def run(dry_run: bool = True) -> None:
     print(f"decide act={decision.action} reason={decision.reason} "
           f"conf={result.confidence:.2f} impact={result.impact:.2f}")
     if decision.should_act:
-        handoff = make_handoff(ctx, summary)
+        people = [
+            {"user_id": uid, "name": uid, "role": "", "interests": ""}
+            for uid in ctx.participants
+        ]
+        reply = compose_reply(ctx, llm, people, result.reason)
         record(rules, thread_id, result, decision.action)
-        post_message("C1", thread_id, handoff, decision.action)
+        post_message("C1", thread_id, reply, decision.action)
     else:
         print("silent: 介入なし")
 

@@ -52,7 +52,8 @@ class TestDemoRoom(unittest.TestCase):
         self.assertTrue(first["intervention"]["should_act"])
         self.assertIsNotNone(first["bot_message"])
         self.assertTrue(first["bot_message"]["is_bot"])
-        self.assertIn("途中参加", first["bot_message"]["text"])
+        self.assertNotIn("途中参加", first["bot_message"]["text"])
+        self.assertIn("@", first["bot_message"]["text"])
 
         second = post_user_message(
             self.conn, self.llm, "U-OZAKI", "なぜ止まってるんだっけ?"

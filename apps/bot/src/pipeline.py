@@ -6,19 +6,16 @@ from dataclasses import dataclass
 
 from ai_core import (
     build_context,
+    compose_reply,
     decide,
     judge_intervention,
-    make_handoff,
     observe,
     record,
 )
+from mentions import ROOMI_NAME, ROOMI_USER_ID
 from ai_core.policy import Decision
 from gateway import NormalizedMessage, normalize_event
 from store import SqliteRules, save_message, thread_messages, upsert_user
-
-ROOMI_USER_ID = "U-ROOMI"
-ROOMI_NAME = "Roomi"
-
 
 @dataclass
 class ProcessResult:
@@ -110,7 +107,9 @@ def evaluate_thread(
     if decision.should_act and persist_bot:
         summary = observe(ctx, llm)
         record(rules, thread_id, result, decision.action)
-        bot_text = make_handoff(ctx, summary)
+        bot_text = compose_reply(
+            ctx, llm, thread_people(conn, thread_id), result.reason
+        )
         bot_message = save_bot_reply(conn, channel_id, thread_id, bot_text)
 
     return ProcessResult(
@@ -192,3 +191,42 @@ def process_event(
     )
     out.message = _public_message(msg)
     return out
+
+
+def thread_people(conn, thread_id: str) -> list[dict]:
+    holders = {
+        r["user_id"]: dict(r)
+        for r in conn.execute(
+            "SELECT user_id, user_name, role, interests FROM stakeholders "
+            "WHERE thread_id = ?",
+            (thread_id,),
+        )
+    }
+    users = {
+        r["id"]: dict(r)
+        for r in conn.execute("SELECT id, name, role FROM users")
+    }
+    ordered: list[str] = []
+    for row in conn.execute(
+        "SELECT user_id FROM messages WHERE thread_id = ? "
+        "ORDER BY CAST(ts AS REAL), ts",
+        (thread_id,),
+    ):
+        uid = row["user_id"]
+        if uid != ROOMI_USER_ID and uid not in ordered:
+            ordered.append(uid)
+    for uid in holders:
+        if uid != ROOMI_USER_ID and uid not in ordered:
+            ordered.append(uid)
+
+    people = []
+    for uid in ordered:
+        holder = holders.get(uid, {})
+        user = users.get(uid, {})
+        people.append({
+            "user_id": uid,
+            "name": holder.get("user_name") or user.get("name") or uid,
+            "role": holder.get("role") or user.get("role") or "",
+            "interests": holder.get("interests") or "",
+        })
+    return people
