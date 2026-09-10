@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "roomi-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "vars": {
+    "LLM_PROVIDER": "openai",
+    "OPENAI_MODEL": "gpt-5.6-luna",
+    "DEMO_CHANNEL_ID": "demo",
+    "DEMO_THREAD_TS": "live",
+    "DEMO_CHANNEL_NAME": "03_rooms_discussion",
+    "DEMO_TITLE": "朝食会場を決めよう"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "roomi",
+      "database_id": "6ed357a8-5f83-4ce7-babc-d7676884cc5d",
+      "migrations_dir": "./migrations"
+    }
+  ]
+}
