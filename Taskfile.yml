@@ -42,6 +42,15 @@ tasks:
     cmds:
       - "{{.VENV}} apps/bot/src/main.py --dry-run --demo"
 
+  eval-chat:
+    desc: AIの応答タイミングと返答内容の評価ケースを確認する（既定はpreviewのみ）
+    vars:
+      BASE_URL: '{{default "http://localhost:3000/api/demo" .BASE_URL}}'
+    env:
+      ROOMI_EVAL_BASE_URL: "{{.BASE_URL}}"
+    cmds:
+      - 'npm --prefix apps/worker run eval:chat -- {{.CLI_ARGS}}'
+
   stakeholders:
     desc: Slack履歴を取得してステークホルダーを抽出する
     requires:
