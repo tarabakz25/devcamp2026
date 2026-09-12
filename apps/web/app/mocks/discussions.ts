@@ -13,6 +13,7 @@ export type DiscussionMessage = {
 
 export type Discussion = {
   id: string;
+  backendThreadId?: string;
   title: string;
   channel: string;
   status: DiscussionStatus;
@@ -60,6 +61,7 @@ const ROOMI_NODE = {
 export const DISCUSSIONS: Discussion[] = [
   {
     id: "breakfast",
+    backendThreadId: process.env.NEXT_PUBLIC_DEMO_THREAD_ID || COMMUNICATION_DEMO.threadId,
     title: COMMUNICATION_DEMO.title,
     channel: "03_rooms_discussion",
     status: "discussion",
@@ -71,7 +73,10 @@ export const DISCUSSIONS: Discussion[] = [
     aiInterventions: COMMUNICATION_DEMO.audit.length,
     liveDemo: true,
     graph: COMMUNICATION_DEMO.graph,
-    timeline: COMMUNICATION_DEMO.timeline,
+    timeline: COMMUNICATION_DEMO.timeline.map((item) => ({
+      ...item,
+      user_name: item.user_name || item.user_id,
+    })),
   },
   {
     id: "kitchen-booking",

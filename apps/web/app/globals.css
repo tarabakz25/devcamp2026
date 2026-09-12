@@ -2976,6 +2976,410 @@ input {
   background: #1a2140;
 }
 
+/* Agreement Loop */
+.agreement-panel {
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid rgba(130, 145, 181, 0.2);
+  border-radius: var(--radius-xl);
+  background: rgba(15, 21, 35, 0.94);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.18);
+}
+
+.agreement-panel-head,
+.agreement-decision-head,
+.agreement-gap-meta,
+.agreement-participant-row,
+.agreement-section-title,
+.agreement-action-copy > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agreement-panel-head {
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.agreement-panel-head h2 {
+  margin: 0 0 4px;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.3;
+}
+
+.agreement-panel-head p,
+.agreement-empty p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.agreement-panel-count {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.24);
+  border-radius: 999px;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: #c7cdff;
+  font-size: 11px;
+}
+
+.agreement-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 88px;
+  padding: 16px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgba(9, 13, 22, 0.42);
+}
+
+.agreement-empty .material-symbols-outlined {
+  color: var(--color-primary);
+  font-size: 28px;
+}
+
+.agreement-empty.unavailable .material-symbols-outlined {
+  color: var(--color-accent);
+}
+
+.agreement-empty strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #eef1f8;
+}
+
+.agreement-refresh-warning {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border: 1px solid rgba(243, 182, 95, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(243, 182, 95, 0.08);
+  color: #f3c981;
+  font-size: 12px;
+}
+
+.agreement-decision-list {
+  display: grid;
+  gap: 12px;
+}
+
+.agreement-decision {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgba(9, 13, 22, 0.5);
+}
+
+.agreement-decision-head {
+  align-items: flex-start;
+}
+
+.agreement-eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--color-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.agreement-decision h3 {
+  margin: 0;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.agreement-proposal {
+  margin: 6px 0 0;
+  color: #cbd3e3;
+  font-size: 13px;
+}
+
+.agreement-decision-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.agreement-status,
+.agreement-stance,
+.agreement-priority,
+.agreement-route,
+.agreement-action-status,
+.agreement-approval {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.agreement-status {
+  background: rgba(243, 182, 95, 0.14);
+  color: #f7c77f;
+}
+
+.agreement-status.decided,
+.agreement-status.resolved,
+.agreement-stance.agreed {
+  background: rgba(110, 216, 195, 0.14);
+  color: var(--color-secondary);
+}
+
+.agreement-status.blocked,
+.agreement-stance.opposed {
+  background: rgba(255, 143, 122, 0.14);
+  color: #ffab9b;
+}
+
+.agreement-stance.conditional {
+  background: rgba(243, 182, 95, 0.14);
+  color: #f7c77f;
+}
+
+.agreement-stance.unconfirmed,
+.agreement-stance.neutral {
+  background: rgba(136, 149, 173, 0.14);
+  color: #aeb9cc;
+}
+
+.agreement-method {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: 14px 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(var(--color-primary-rgb), 0.08);
+}
+
+.agreement-method div {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.agreement-method dt {
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.agreement-method dd {
+  margin: 0;
+  color: #e7eaff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.agreement-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.agreement-section {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(130, 145, 181, 0.14);
+  border-radius: var(--radius-md);
+  background: rgba(22, 30, 49, 0.62);
+}
+
+.agreement-section-title {
+  justify-content: flex-start;
+  margin-bottom: 10px;
+}
+
+.agreement-section-title .material-symbols-outlined {
+  color: #aeb7ff;
+  font-size: 18px;
+}
+
+.agreement-section-title h4 {
+  flex: 1;
+  margin: 0;
+  color: #f5f7fb;
+  font-size: 12px;
+}
+
+.agreement-section-title > span:last-child {
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.agreement-gap-list,
+.agreement-participant-list,
+.agreement-actions ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agreement-gap-list li,
+.agreement-participant-list li {
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(9, 13, 22, 0.5);
+}
+
+.agreement-gap-meta,
+.agreement-participant-row {
+  margin-bottom: 6px;
+}
+
+.agreement-gap-list p,
+.agreement-participant-list p,
+.agreement-actions p {
+  margin: 0;
+  color: #dce2ed;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.agreement-priority {
+  background: rgba(136, 149, 173, 0.14);
+  color: #aeb9cc;
+}
+
+.agreement-priority.high {
+  background: rgba(255, 143, 122, 0.14);
+  color: #ffab9b;
+}
+
+.agreement-priority.low {
+  background: rgba(110, 216, 195, 0.1);
+  color: #91dacc;
+}
+
+.agreement-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #f0f3f8;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.agreement-person img {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-panel);
+}
+
+.agreement-person-name {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.agreement-participant-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.agreement-participant-list p {
+  margin-top: 6px;
+  color: #f2c985;
+}
+
+.agreement-confidence {
+  color: var(--color-text-muted);
+  font-size: 9px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.agreement-actions {
+  margin-top: 12px;
+}
+
+.agreement-actions li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(var(--color-primary-rgb), 0.06);
+}
+
+.agreement-action-order {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(var(--color-primary-rgb), 0.2);
+  color: #cbd0ff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.agreement-action-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.agreement-action-copy > div {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+  gap: 6px;
+}
+
+.agreement-route {
+  background: rgba(var(--color-primary-rgb), 0.18);
+  color: #cbd0ff;
+}
+
+.agreement-action-status {
+  background: rgba(136, 149, 173, 0.12);
+  color: #aeb9cc;
+}
+
+.agreement-approval {
+  background: rgba(243, 182, 95, 0.12);
+  color: #f7c77f;
+}
+
+.agreement-actions small {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.agreement-inline-empty {
+  margin: 0;
+  padding: 8px 0;
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
 .discussion-detail-body {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.8fr);
@@ -3270,6 +3674,10 @@ input {
     min-height: 360px;
     max-height: none;
   }
+
+  .agreement-columns {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 860px) {
@@ -3310,9 +3718,21 @@ input {
   .directory-toolbar,
   .discussion-row,
   .discussion-detail-title,
+  .agreement-panel-head,
+  .agreement-decision-head,
   .agent-profile {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .agreement-panel,
+  .agreement-decision {
+    padding: 14px;
+  }
+
+  .agreement-panel-count,
+  .agreement-decision-state {
+    align-self: flex-start;
   }
 
   .directory-sort {
@@ -3327,4 +3747,3 @@ input {
     align-items: flex-start;
   }
 }
-
