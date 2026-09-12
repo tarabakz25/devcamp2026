@@ -164,6 +164,7 @@ class TestDemoRoom(unittest.TestCase):
 
         ai_turn = play_tick(self.conn, self.llm)
         self.assertEqual(ai_turn["playback"]["mode"], "ai")
+        self.assertEqual(ai_turn["playback"]["interval_sec"], 3)
         self.assertFalse(ai_turn["message"]["is_bot"])
         self.assertIn("立場", ai_turn["message"]["text"])
         # 1ターン目直後は相手の返答を待つためRoomiは発言しない
