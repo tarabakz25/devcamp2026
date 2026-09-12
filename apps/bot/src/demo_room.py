@@ -20,6 +20,7 @@ DEMO_CHANNEL_NAME = "03_rooms_discussion"
 DEMO_TITLE = "朝食会場を決めよう"
 
 PLAY_INTERVAL_SEC = 10
+AI_PLAY_INTERVAL_SEC = 3
 MAX_AI_REPLIES = 8
 
 # デモ画面では架空名だけ出す。real_name は担当一覧用で DB には入れない。
@@ -608,7 +609,7 @@ def playback_view(conn) -> dict:
         "index": index,
         "total": len(msgs),
         "ai_count": int(_playback["ai_count"]),
-        "interval_sec": PLAY_INTERVAL_SEC,
+        "interval_sec": AI_PLAY_INTERVAL_SEC if mode == "ai" else PLAY_INTERVAL_SEC,
         "next_speaker": next_speaker,
         "intervene": int(_playback.get("last_intervene") or 0),
         "reason": str(_playback.get("last_reason") or ""),
