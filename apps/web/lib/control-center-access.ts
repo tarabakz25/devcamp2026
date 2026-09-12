@@ -13,9 +13,14 @@ export function controlCenterUserAllowed(email: string | null | undefined): bool
 }
 
 export function controlCenterThreadAllowed(threadId: string): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
   const demoThreadId = process.env.NEXT_PUBLIC_DEMO_THREAD_ID || "demo-live";
   const allowed = new Set([
     demoThreadId,
+    "breakfast",
+    "kitchen-booking",
+    "noise",
+    "trash",
     ...(process.env.ROOMI_ALLOWED_THREAD_IDS || "").split(",").map((value) => value.trim()).filter(Boolean),
   ]);
   return allowed.has(threadId);
