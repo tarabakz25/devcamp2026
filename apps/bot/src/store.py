@@ -1,8 +1,10 @@
 """Store: SQLiteローカル / Postgres本番の薄い抽象化。MVPはsqlite3のみ実装。"""
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
+import time
 from pathlib import Path
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schema.sql"
@@ -90,6 +92,92 @@ def delete_stakeholder(
     )
     conn.commit()
     return cur.rowcount > 0
+
+
+def save_embedding(
+    conn: sqlite3.Connection, kind: str, ref_id: str, embedding: list[float]
+) -> None:
+    conn.execute(
+        "DELETE FROM embeddings WHERE kind = ? AND ref_id = ?",
+        (kind, ref_id),
+    )
+    conn.execute(
+        "INSERT INTO embeddings (kind, ref_id, embedding) VALUES (?, ?, ?)",
+        (kind, ref_id, json.dumps(embedding)),
+    )
+    conn.commit()
+
+
+def get_embedding(
+    conn: sqlite3.Connection, kind: str, ref_id: str
+) -> list[float] | None:
+    row = conn.execute(
+        "SELECT embedding FROM embeddings WHERE kind = ? AND ref_id = ?",
+        (kind, ref_id),
+    ).fetchone()
+    if row and row["embedding"]:
+        try:
+            return json.loads(row["embedding"])
+        except Exception:
+            return None
+    return None
+
+
+def upsert_stakeholder_profile(
+    conn: sqlite3.Connection,
+    user_id: str,
+    name: str,
+    role: str = "",
+    interests: str = "",
+    avatar: str = "",
+    embedding: list[float] | None = None,
+) -> None:
+    now = str(time.time())
+    conn.execute(
+        "INSERT INTO stakeholder_profiles (user_id, name, role, interests, avatar, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(user_id) DO UPDATE SET "
+        "name=excluded.name, "
+        "role=CASE WHEN excluded.role != '' THEN excluded.role ELSE stakeholder_profiles.role END, "
+        "interests=CASE WHEN excluded.interests != '' THEN excluded.interests ELSE stakeholder_profiles.interests END, "
+        "avatar=CASE WHEN excluded.avatar != '' THEN excluded.avatar ELSE stakeholder_profiles.avatar END, "
+        "updated_at=excluded.updated_at",
+        (user_id, name, role, interests, avatar, now),
+    )
+    upsert_user(conn, user_id, name, role)
+    if embedding is not None:
+        save_embedding(conn, "stakeholder", user_id, embedding)
+    conn.commit()
+
+
+def get_stakeholder_profiles(conn: sqlite3.Connection) -> list[dict]:
+    rows = conn.execute(
+        "SELECT user_id, name, role, interests, avatar, updated_at FROM stakeholder_profiles"
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def load_stakeholder_catalog(conn: sqlite3.Connection, llm=None) -> list:
+    from ai_core import StakeholderProfile
+
+    profiles = get_stakeholder_profiles(conn)
+    catalog: list[StakeholderProfile] = []
+    for p in profiles:
+        uid = p["user_id"]
+        emb = get_embedding(conn, "stakeholder", uid)
+        profile = StakeholderProfile(
+            user_id=uid,
+            name=p["name"],
+            role=p["role"],
+            interests=p["interests"],
+            avatar=p["avatar"],
+            embedding=emb,
+        )
+        if profile.embedding is None and llm and hasattr(llm, "embed"):
+            profile.embedding = llm.embed(profile.profile_text)
+            save_embedding(conn, "stakeholder", uid, profile.embedding)
+        catalog.append(profile)
+    return catalog
 
 
 def save_message(conn: sqlite3.Connection, msg) -> None:

@@ -36,7 +36,7 @@ class TestDemoRoom(unittest.TestCase):
         self.conn = connect()
         self.llm = get_llm("dummy")
 
-    def test_seed_stakeholders_and_post_triggers_ai(self):
+    def test_seed_stakeholders_waits_for_context_before_ai(self):
         state = room_state(self.conn, "dummy")
         names = {p["user_name"] for p in state["stakeholders"]}
         real_names = {p["real_name"] for p in SEED_STAKEHOLDERS}
@@ -49,17 +49,24 @@ class TestDemoRoom(unittest.TestCase):
             self.conn, self.llm, "U-SASAKI", "仕様どうする?"
         )
         self.assertEqual(first["message"]["user_name"], "高橋さくら")
-        self.assertTrue(first["intervention"]["should_act"])
-        self.assertIsNotNone(first["bot_message"])
-        self.assertTrue(first["bot_message"]["is_bot"])
-        self.assertNotIn("途中参加", first["bot_message"]["text"])
-        self.assertIn("@", first["bot_message"]["text"])
+        self.assertFalse(first["intervention"]["should_act"])
+        self.assertIsNone(first["bot_message"])
 
         second = post_user_message(
             self.conn, self.llm, "U-OZAKI", "なぜ止まってるんだっけ?"
         )
         self.assertFalse(second["intervention"]["should_act"])
         self.assertIsNone(second["bot_message"])
+
+        third = post_user_message(
+            self.conn,
+            self.llm,
+            "U-SAKUMA",
+            "決め方が分からないままだと学生側は困るので、1階を続けたいです。",
+        )
+        self.assertTrue(third["intervention"]["should_act"])
+        self.assertIsNotNone(third["bot_message"])
+        self.assertIn("決まり", third["bot_message"]["text"])
 
     def test_mention_roomi_and_force_intervene(self):
         post_user_message(self.conn, self.llm, "U-SASAKI", "仕様どうする?")
@@ -119,14 +126,21 @@ class TestDemoRoom(unittest.TestCase):
         self.assertIsNone(started["bot_message"])
 
         latest = started
-        for _ in range(20):
-            if latest["playback"]["mode"] != "script":
-                break
+        for expected_index in (2, 3):
             latest = play_tick(self.conn, self.llm)
+            self.assertEqual(latest["playback"]["mode"], "script")
+            self.assertEqual(latest["playback"]["index"], expected_index)
+            self.assertIsNone(latest["bot_message"])
+
+        latest = play_tick(self.conn, self.llm)
         self.assertEqual(latest["playback"]["mode"], "ai")
+        self.assertEqual(latest["playback"]["index"], 4)
         self.assertEqual(latest["playback"].get("intervene"), 1)
         self.assertIsNotNone(latest["bot_message"])
         self.assertTrue(latest["bot_message"]["is_bot"])
+        self.assertIn("前提", latest["bot_message"]["text"])
+        self.assertIn("含む決まり", latest["bot_message"]["text"])
+        self.assertEqual(latest["bot_message"]["text"].count("？"), 1)
 
         ai_turn = play_tick(self.conn, self.llm)
         self.assertEqual(ai_turn["playback"]["mode"], "ai")
@@ -164,8 +178,8 @@ class TestDemoAPI(unittest.TestCase):
         )
         self.assertEqual(posted.status_code, 200)
         data = posted.json()
-        self.assertTrue(data["intervention"]["should_act"])
-        self.assertTrue(data["bot_message"]["is_bot"])
+        self.assertFalse(data["intervention"]["should_act"])
+        self.assertIsNone(data["bot_message"])
 
         created = self.client.post(
             "/api/demo/stakeholders",

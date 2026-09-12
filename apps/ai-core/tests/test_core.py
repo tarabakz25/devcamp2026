@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ai_core import (
+    OpenAIProvider,
     build_context,
     compose_reply,
     decide,
@@ -12,6 +13,20 @@ from ai_core import (
     judge_intervention,
     make_handoff,
 )
+
+
+class AlwaysInterveneLLM:
+    def needs_intervention(self, _context_summary):
+        return True, "今すぐ介入したい"
+
+
+class CapturingOpenAIProvider(OpenAIProvider):
+    def __init__(self):
+        self.calls = []
+
+    def _chat(self, system, user, **_kwargs):
+        self.calls.append((system, user))
+        return "前提を確認した。適用する決まりはどれ？"
 
 
 class FakeRules:
@@ -72,6 +87,81 @@ class TestCore(unittest.TestCase):
         self.assertFalse(no)
         self.assertIn("介入不要", idle)
 
+    def test_waits_for_another_viewpoint_even_when_llm_says_intervene(self):
+        people = [
+            {"user_id": "U1", "name": "高橋", "role": "寮スタッフ"},
+            {"user_id": "U2", "name": "伊藤", "role": "寮スタッフ"},
+            {"user_id": "U3", "name": "中村", "role": "学生"},
+        ]
+        staff_only = build_context(
+            [
+                {"user_id": "U1", "text": "2階へ移すのはどうでしょう？", "is_mention": 0},
+                {"user_id": "U2", "text": "1階はスタッフ専用です", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        waiting = judge_intervention(staff_only, AlwaysInterveneLLM(), people)
+        self.assertEqual(waiting.confidence, 0.0)
+        self.assertIn("別の立場", waiting.reason)
+
+        with_student = build_context(
+            [
+                *staff_only.messages,
+                {"user_id": "U2", "text": "学生は2階を使ってください", "is_mention": 0},
+                {"user_id": "U3", "text": "準備が楽なので1階を続けたい", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        ready = judge_intervention(with_student, AlwaysInterveneLLM(), people)
+        self.assertEqual(ready.confidence, 1.0)
+
+    def test_two_people_with_explicitly_opposing_positions_are_ready(self):
+        people = [
+            {"user_id": "U1", "name": "高橋", "role": "寮スタッフ"},
+            {"user_id": "U2", "name": "中村", "role": "学生"},
+        ]
+        context = build_context(
+            [
+                {"user_id": "U1", "text": "学生は2階を使ってください", "is_mention": 0},
+                {"user_id": "U2", "text": "準備が楽なので1階を続けたい", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        result = judge_intervention(context, AlwaysInterveneLLM(), people)
+        self.assertEqual(result.confidence, 1.0)
+
+    def test_three_people_from_the_same_side_are_not_enough(self):
+        people = [
+            {"user_id": f"U{index}", "name": f"スタッフ{index}", "role": "寮スタッフ"}
+            for index in range(1, 4)
+        ]
+        context = build_context(
+            [
+                {"user_id": "U1", "text": "2階を使う案です", "is_mention": 0},
+                {"user_id": "U2", "text": "1階は居住エリアです", "is_mention": 0},
+                {"user_id": "U3", "text": "同じ案でお願いします", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        result = judge_intervention(context, AlwaysInterveneLLM(), people)
+        self.assertEqual(result.confidence, 0.0)
+
+    def test_only_latest_mention_bypasses_readiness(self):
+        old_mention = build_context(
+            [
+                {"user_id": "U1", "text": "@Roomi 整理して", "is_mention": 1},
+                {"user_id": "U1", "text": "続きです", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        result = judge_intervention(old_mention, AlwaysInterveneLLM())
+        self.assertEqual(result.confidence, 0.0)
+
     def test_compose_reply_mentions_people(self):
         llm = get_llm("dummy")
         msgs = [
@@ -89,8 +179,47 @@ class TestCore(unittest.TestCase):
             "方針が食い違っている",
         )
         self.assertIn("@高橋さくら", text)
-        self.assertIn("@中村蓮", text)
+        self.assertIn("ルール", text)
+        self.assertEqual(text.count("？"), 1)
         self.assertNotIn("途中参加", text)
+
+    def test_dummy_reply_does_not_turn_negated_or_registered_data_into_fact(self):
+        llm = get_llm("dummy")
+        text = llm.reply_as_roomi(
+            "高橋 (寮スタッフ, U1): 朝食の搬入は許可されていない。1階はスタッフ専用ではない。",
+            [{
+                "user_id": "U1",
+                "name": "高橋",
+                "role": "寮スタッフ",
+                "interests": "A棟1階への搬入は許可済み。1階はスタッフ専用",
+            }],
+        )
+        self.assertNotIn("許可済み", text)
+        self.assertNotIn("居住スタッフ用という前提", text)
+        self.assertIn("誰がどのルール", text)
+
+    def test_dummy_reply_does_not_invent_a_delivery_gap_for_other_breakfast_topics(self):
+        llm = get_llm("dummy")
+        text = llm.reply_as_roomi(
+            "中村 (学生, U2): 朝食会場をB棟に変えたいです。",
+            [{"user_id": "U2", "name": "中村", "role": "学生", "interests": "B棟"}],
+        )
+        self.assertNotIn("搬入", text)
+        self.assertIn("誰がどのルール", text)
+
+    def test_openai_reply_prompt_prioritizes_missing_prerequisites(self):
+        llm = CapturingOpenAIProvider()
+        llm.reply_as_roomi(
+            "高橋 (寮スタッフ, U1): 1階はスタッフの居住エリアです",
+            [{"user_id": "U1", "name": "高橋", "role": "寮スタッフ", "interests": "1階の利用権限"}],
+            "方針が食い違っている",
+        )
+        system, user = llm.calls[0]
+        self.assertIn("合意を聞く前", system)
+        self.assertIn("適用する決まり", system)
+        self.assertIn("書かれていない事実・決まり・許可を作らない", system)
+        self.assertIn("現在の合意や確定事実ではない", user)
+        self.assertIn("現在の発言ログ", user)
 
     def test_dummy_stakeholder_reply(self):
         llm = get_llm("dummy")

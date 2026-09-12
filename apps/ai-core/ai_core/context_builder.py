@@ -14,6 +14,7 @@ class ThreadContext:
     questions_open: int = 0
     summary: str = ""
     unresolved: list[str] = field(default_factory=list)
+    messages: list[dict] = field(default_factory=list)
 
 
 QUESTION_MARKS = ("?", "？", "どう", "なぜ", "なんで", "誰", "いつ", "どうする", "決まって")
@@ -36,8 +37,10 @@ def build_context(messages: list[dict], thread_id: str, channel_id: str) -> Thre
         channel_id=channel_id,
         participants=participants,
         message_count=len(messages),
-        mentions_bot=any(m.get("is_mention") for m in messages),
+        # A previous mention must not make every later turn an immediate reply.
+        mentions_bot=bool(messages and messages[-1].get("is_mention")),
         questions_open=len(unresolved),
         summary="\n".join(texts[-5:])[:2000],
         unresolved=unresolved,
+        messages=[dict(message) for message in messages[-12:]],
     )

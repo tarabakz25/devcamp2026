@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ai_core import (
     build_context,
@@ -15,7 +15,13 @@ from ai_core import (
 from mentions import ROOMI_NAME, ROOMI_USER_ID
 from ai_core.policy import Decision
 from gateway import NormalizedMessage, normalize_event
-from store import SqliteRules, save_message, thread_messages, upsert_user
+from store import (
+    SqliteRules,
+    load_stakeholder_catalog,
+    save_message,
+    thread_messages,
+    upsert_user,
+)
 
 @dataclass
 class ProcessResult:
@@ -29,6 +35,8 @@ class ProcessResult:
     summary: str
     bot_message: dict | None
     bot_text: str
+    relevant_stakeholders: list[dict] = field(default_factory=list)
+    missing_stakeholders: list[dict] = field(default_factory=list)
 
 
 def _public_message(msg: NormalizedMessage, *, is_bot: bool = False) -> dict:
@@ -94,7 +102,15 @@ def evaluate_thread(
         )
 
     ctx = build_context([dict(r) for r in rows], thread_id, channel_id)
-    result = judge_intervention(ctx, llm)
+    people = thread_people(conn, thread_id)
+    catalog = load_stakeholder_catalog(conn, llm)
+    result = judge_intervention(
+        ctx,
+        llm,
+        people,
+        catalog=catalog,
+        bypass_readiness=force,
+    )
     rules = SqliteRules(conn)
     if force:
         decision = Decision(True, "reply", result.reason)
@@ -107,8 +123,20 @@ def evaluate_thread(
     if decision.should_act and persist_bot:
         summary = observe(ctx, llm)
         record(rules, thread_id, result, decision.action)
+        # RAGで検出された不在関係者もRoomiの参照対象として加える
+        known_uids = {p.get("user_id") for p in people}
+        extended_people = list(people)
+        for missing in (result.missing_stakeholders or []):
+            if missing.get("user_id") and missing["user_id"] not in known_uids:
+                extended_people.append({
+                    "user_id": missing["user_id"],
+                    "name": missing["name"],
+                    "role": missing.get("role", ""),
+                    "interests": missing.get("interests", ""),
+                })
+                known_uids.add(missing["user_id"])
         bot_text = compose_reply(
-            ctx, llm, thread_people(conn, thread_id), result.reason
+            ctx, llm, extended_people, result.reason
         )
         bot_message = save_bot_reply(conn, channel_id, thread_id, bot_text)
 
@@ -123,6 +151,8 @@ def evaluate_thread(
         summary=summary,
         bot_message=bot_message,
         bot_text=bot_text,
+        relevant_stakeholders=result.relevant_stakeholders or [],
+        missing_stakeholders=result.missing_stakeholders or [],
     )
 
 

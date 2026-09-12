@@ -51,6 +51,15 @@ CREATE TABLE IF NOT EXISTS embeddings (
   embedding TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS stakeholder_profiles (
+  user_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  role TEXT DEFAULT '',
+  interests TEXT DEFAULT '',
+  avatar TEXT DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS stakeholders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   thread_id TEXT NOT NULL,
