@@ -149,8 +149,10 @@ def build_fastapi_app(
 
     from ai_core import get_llm, resolve_llm_name
     from demo_room import (
+        SCENARIOS,
         add_stakeholder,
         force_intervene,
+        get_current_scenario_id,
         load_scenario,
         play_tick,
         post_user_message,
@@ -159,6 +161,7 @@ def build_fastapi_app(
         room_state,
         start_playback,
         stop_playback,
+        switch_scenario,
     )
     from store import connect
 
@@ -207,6 +210,16 @@ def build_fastapi_app(
         with db() as conn:
             return room_state(conn, llm_name)
 
+    @app.get("/api/demo/scenarios")
+    def get_scenarios():
+        return {
+            "current": get_current_scenario_id(),
+            "scenarios": [
+                {"id": s["id"], "title": s["title"], "description": s["description"]}
+                for s in SCENARIOS.values()
+            ],
+        }
+
     @app.post("/api/demo/messages")
     def post_demo_message(payload: dict[str, Any]):
         try:
@@ -245,14 +258,21 @@ def build_fastapi_app(
             return force_intervene(conn, llm)
 
     @app.post("/api/demo/scenario")
-    def post_demo_scenario():
-        with db() as conn:
-            return load_scenario(conn)
+    def post_demo_scenario(payload: dict[str, Any] | None = None):
+        scenario_id = (payload or {}).get("scenario_id")
+        try:
+            with db() as conn:
+                if scenario_id:
+                    return switch_scenario(conn, str(scenario_id), llm_name)
+                return load_scenario(conn)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/demo/play/start")
-    def post_demo_play_start():
+    def post_demo_play_start(payload: dict[str, Any] | None = None):
+        scenario_id = (payload or {}).get("scenario_id")
         with db() as conn:
-            return start_playback(conn, llm)
+            return start_playback(conn, llm, str(scenario_id) if scenario_id else None)
 
     @app.post("/api/demo/play/tick")
     def post_demo_play_tick():

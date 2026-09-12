@@ -44,6 +44,8 @@ class TestDemoRoom(unittest.TestCase):
         _reset_playback()
         self.conn = connect()
         self.llm = get_llm("dummy")
+        from demo_room import switch_scenario
+        switch_scenario(self.conn, "breakfast", "dummy")
 
     def test_seed_stakeholders_waits_for_context_before_ai(self):
         state = room_state(self.conn, "dummy")
@@ -225,6 +227,43 @@ class TestDemoAPI(unittest.TestCase):
         self.assertGreaterEqual(len(play["messages"]), 1)
         self.assertEqual(play["messages"][0]["user_name"], "高橋さくら")
 
+    def test_switch_scenario_and_playback(self):
+        # 1. シナリオ一覧取得
+        scenarios_res = self.client.get("/api/demo/scenarios")
+        self.assertEqual(scenarios_res.status_code, 200)
+        scenarios_data = scenarios_res.json()
+        ids = [s["id"] for s in scenarios_data["scenarios"]]
+        self.assertIn("breakfast", ids)
+        self.assertIn("eblock", ids)
+        self.assertIn("hygiene", ids)
+
+        # 2. eblock シナリオに切り替え
+        switch_res = self.client.post("/api/demo/scenario", json={"scenario_id": "eblock"})
+        self.assertEqual(switch_res.status_code, 200)
+        eblock_room = switch_res.json()
+        self.assertEqual(eblock_room["current_scenario"], "eblock")
+        self.assertEqual(eblock_room["title"], "BASEのe-block充電ドック運用")
+        eblock_names = {s["user_name"] for s in eblock_room["stakeholders"]}
+        self.assertIn("宮野しゅうた", eblock_names)
+        self.assertIn("河野めぐみ", eblock_names)
+
+        # 3. eblock で再生開始
+        play_res = self.client.post("/api/demo/play/start")
+        self.assertEqual(play_res.status_code, 200)
+        play_data = play_res.json()
+        self.assertEqual(play_data["playback"]["mode"], "script")
+        self.assertEqual(play_data["messages"][0]["user_name"], "宮野しゅうた")
+        self.assertIn("e-block", play_data["messages"][0]["text"])
+
+        # 4. hygiene シナリオに直接再生開始
+        hygiene_play = self.client.post("/api/demo/play/start", json={"scenario_id": "hygiene"})
+        self.assertEqual(hygiene_play.status_code, 200)
+        hygiene_data = hygiene_play.json()
+        self.assertEqual(hygiene_data["title"], "キッチンのふきん除菌・洗濯運用")
+        self.assertEqual(hygiene_data["messages"][0]["user_name"], "中渓いっしん")
+        self.assertIn("ふきん", hygiene_data["messages"][0]["text"])
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -51,6 +51,9 @@ type RoomState = {
   channel: { id: string; name: string };
   thread_id: string;
   title: string;
+  description?: string;
+  current_scenario?: string;
+  scenarios?: { id: string; title: string; description: string }[];
   llm: string;
   stakeholders: Stakeholder[];
   messages: ChatMessage[];
@@ -282,24 +285,58 @@ export default function SlackDemoChat() {
     return "実例を再生したよ。";
   }
 
+  async function switchScenario(scenarioId: string) {
+    if (thinking || playingRef.current) return;
+    clearPlayTimer();
+    setThinking(true);
+    setThinkingName("切替中");
+    try {
+      const data = (await readApi("/api/demo/scenario", {
+        method: "POST",
+        body: JSON.stringify({ scenario_id: scenarioId }),
+      })) as RoomState;
+      setRoom(data);
+      setSpeakerId(data.stakeholders[0]?.user_id || "");
+      setBanner({
+        kind: "info",
+        text: `シナリオを「${data.title}」に切り替えたよ。「実例を再生」でこの議論を再生できるよ。`,
+      });
+    } catch (err: any) {
+      setBanner({ kind: "error", text: err.message });
+    } finally {
+      setThinking(false);
+    }
+  }
+
   async function startPlay() {
     clearPlayTimer();
     playingRef.current = true;
     setThinking(true);
     setThinkingName("実例");
     try {
-      const data = await readApi("/api/demo/play/start", { method: "POST" });
+      const data = await readApi("/api/demo/play/start", {
+        method: "POST",
+        body: JSON.stringify({ scenario_id: room?.current_scenario }),
+      });
       if (data.channel || data.title || data.stakeholders) {
         setRoom((current) => ({
           channel: data.channel || current?.channel || { id: "demo", name: "03_rooms_discussion" },
           thread_id: data.thread_id || current?.thread_id || "demo-live",
           title: data.title || current?.title || "朝食会場を決めよう",
+          description: data.description || current?.description || "",
+          current_scenario: data.current_scenario || current?.current_scenario || "breakfast",
+          scenarios: data.scenarios || current?.scenarios || [],
           llm: data.llm || current?.llm || "",
           stakeholders: data.stakeholders || current?.stakeholders || [],
           messages: data.messages || [],
           audit: data.audit || [],
           playback: data.playback,
         }));
+        if (data.stakeholders?.length) {
+          setSpeakerId((cur) =>
+            data.stakeholders.some((s: Stakeholder) => s.user_id === cur) ? cur : data.stakeholders[0].user_id
+          );
+        }
       } else {
         applyRoomPatch(data);
       }
@@ -521,12 +558,34 @@ export default function SlackDemoChat() {
         <section className="slack-demo-main" aria-label="デモチャンネル">
           <div className="slack-demo-header">
             <div>
-              <h1>
-                <span aria-hidden="true">#</span> {room?.channel.name || "03_rooms_discussion"}
-              </h1>
-              <p>{room?.title || "ステークホルダーを指定して会話する"}</p>
+              <div className="slack-demo-header-title-row">
+                <h1>
+                  <span aria-hidden="true">#</span> {room?.channel.name || "03_rooms_discussion"}
+                </h1>
+                {room?.title && (
+                  <span className="slack-demo-scenario-badge" title={room.description || room.title}>
+                    {room.title}
+                  </span>
+                )}
+              </div>
+              <p>{room?.description || room?.title || "ステークホルダーを指定して会話する"}</p>
             </div>
             <div className="slack-demo-header-actions">
+              <div className="slack-demo-scenario-select-wrapper">
+                <label htmlFor="scenario-select" className="sr-only">シナリオ</label>
+                <select
+                  id="scenario-select"
+                  className="slack-demo-scenario-select"
+                  value={room?.current_scenario || "breakfast"}
+                  onChange={(e) => void switchScenario(e.target.value)}
+                  disabled={thinking || isPlaying}
+                  title="再生する実例シナリオを選択"
+                >
+                  <option value="breakfast">🍳 朝食会場を決めよう</option>
+                  <option value="eblock">🔋 BASEのe-block充電運用</option>
+                  <option value="hygiene">🧼 キッチンのふきん除菌・洗濯</option>
+                </select>
+              </div>
               {isPlaying ? (
                 <button type="button" className="playing" onClick={() => void stopPlay()}>
                   再生を止める

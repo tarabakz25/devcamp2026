@@ -1903,6 +1903,57 @@ input {
   font-weight: 800;
 }
 
+.slack-demo-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.slack-demo-scenario-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(162, 53, 175, 0.15);
+  border: 1px solid rgba(162, 53, 175, 0.35);
+  color: #e2a8eb;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.slack-demo-scenario-select-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.slack-demo-scenario-select {
+  padding: 6px 10px;
+  border: 1px solid #4a154b;
+  border-radius: 8px;
+  background: #2b1130;
+  color: #f8e9fa;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.slack-demo-scenario-select:hover:not(:disabled) {
+  background: #38153e;
+  border-color: #611f69;
+}
+
+.slack-demo-scenario-select:focus {
+  box-shadow: 0 0 0 2px rgba(162, 53, 175, 0.4);
+}
+
+.slack-demo-scenario-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .slack-demo-header p {
   margin: 4px 0 0;
   color: #ababad;
@@ -1911,6 +1962,7 @@ input {
 
 .slack-demo-header-actions {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
 }
