@@ -166,6 +166,15 @@ class TestDemoRoom(unittest.TestCase):
         self.assertEqual(ai_turn["playback"]["mode"], "ai")
         self.assertFalse(ai_turn["message"]["is_bot"])
         self.assertIn("立場", ai_turn["message"]["text"])
+        # 1ターン目直後は相手の返答を待つためRoomiは発言しない
+        self.assertIsNone(ai_turn.get("bot_message"))
+
+        # 2ターン目で双方が発言し食い違いが継続した場合、Roomiが再介入できる
+        ai_turn2 = play_tick(self.conn, self.llm)
+        self.assertEqual(ai_turn2["playback"]["mode"], "ai")
+        self.assertTrue(ai_turn2["intervention"]["should_act"])
+        self.assertIsNotNone(ai_turn2.get("bot_message"))
+
         stopped = stop_playback(self.conn, "dummy")
         self.assertEqual(stopped["playback"]["mode"], "stopped")
         self.assertLessEqual(ai_turn["playback"]["ai_count"], MAX_AI_REPLIES)

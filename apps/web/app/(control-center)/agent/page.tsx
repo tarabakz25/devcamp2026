@@ -133,13 +133,13 @@ export default function AgentPage() {
             <label className="agent-slider">
               <span>
                 クールダウン
-                <strong>{Math.round(settings.cooldownSec / 60)} 分</strong>
+                <strong>{settings.cooldownSec <= 0 ? "なし (0秒)" : settings.cooldownSec < 60 ? `${settings.cooldownSec} 秒` : `${Math.round(settings.cooldownSec / 60)} 分`}</strong>
               </span>
               <input
                 type="range"
-                min={60}
+                min={0}
                 max={1800}
-                step={60}
+                step={30}
                 value={settings.cooldownSec}
                 onChange={(event) => update("cooldownSec", Number(event.target.value))}
               />
@@ -216,7 +216,7 @@ export default function AgentPage() {
               </li>
               <li>
                 <span>クールダウン</span>
-                <strong>{Math.round(settings.cooldownSec / 60)} 分</strong>
+                <strong>{settings.cooldownSec <= 0 ? "なし (0秒)" : settings.cooldownSec < 60 ? `${settings.cooldownSec} 秒` : `${Math.round(settings.cooldownSec / 60)} 分`}</strong>
               </li>
               <li>
                 <span>確信度 / インパクト</span>

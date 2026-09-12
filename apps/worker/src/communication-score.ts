@@ -369,7 +369,7 @@ export function decideScoreIntervention(input: ScoreDecisionInput): ScoreInterve
   const sinceLast = input.lastInterventionAtSec === null
     ? Number.POSITIVE_INFINITY
     : input.nowSec - input.lastInterventionAtSec;
-  const cooldownRemainingSec = Number.isFinite(sinceLast)
+  const cooldownRemainingSec = cooldownSec > 0 && Number.isFinite(sinceLast)
     ? Math.max(0, cooldownSec - sinceLast)
     : 0;
 

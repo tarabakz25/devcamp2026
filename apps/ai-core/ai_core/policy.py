@@ -34,7 +34,8 @@ def decide(
         return Decision(False, "silent", "ルールで無効化されている")
 
     now = now if now is not None else time.time()
-    if now - rules.last_intervention_ts(thread_id) < rule["cooldown_sec"]:
+    cooldown = rule.get("cooldown_sec", 0)
+    if cooldown > 0 and now - rules.last_intervention_ts(thread_id) < cooldown:
         return Decision(False, "silent", "クールダウン中")
 
     if result.confidence < rule["min_confidence"] or result.impact < rule["min_impact"]:

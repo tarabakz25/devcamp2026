@@ -17,21 +17,48 @@ class AgentResult:
     missing_stakeholders: list[dict] = None  # type: ignore[assignment]
 
 
-def _human_messages(ctx: ThreadContext, people: list[dict]) -> list[dict]:
+def _is_bot_message(message: dict) -> bool:
+    uid = str(message.get("user_id") or message.get("user") or "")
+    return bool(message.get("is_bot") or uid == "U-ROOMI" or uid.endswith("ROOMI"))
+
+
+def _filter_human_messages(messages: list[dict], people: list[dict]) -> list[dict]:
     known_people = {str(person.get("user_id") or "") for person in people}
-    if not known_people:
-        return list(ctx.messages)
-    return [
-        message for message in ctx.messages
-        if str(message.get("user_id") or message.get("user") or "") in known_people
-    ]
+    result: list[dict] = []
+    for message in messages:
+        if _is_bot_message(message):
+            continue
+        uid = str(message.get("user_id") or message.get("user") or "")
+        if not known_people or uid in known_people:
+            result.append(message)
+    return result
+
+
+def _human_messages(ctx: ThreadContext, people: list[dict]) -> list[dict]:
+    return _filter_human_messages(ctx.messages, people)
 
 
 def conversation_ready(ctx: ThreadContext, people: list[dict] | None = None) -> bool:
-    """Wait for four human turns before making an unsolicited intervention."""
+    """Wait for enough human turns before making an unsolicited intervention.
+    
+    - Before any bot intervention: wait for at least 4 human turns.
+    - After a previous bot intervention: wait for at least 2 human turns (discussion rally).
+    """
     if ctx.mentions_bot:
         return True
     people = people or []
+
+    # Check if there is an existing bot message in the context
+    last_bot_index = -1
+    for i, m in enumerate(ctx.messages):
+        if _is_bot_message(m):
+            last_bot_index = i
+
+    if last_bot_index >= 0:
+        later_messages = ctx.messages[last_bot_index + 1:]
+        human_later = _filter_human_messages(later_messages, people)
+        return len(human_later) >= 2
+
     messages = _human_messages(ctx, people)
     return len(messages) >= 4
 

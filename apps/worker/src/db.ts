@@ -137,7 +137,7 @@ export async function ensureRoom(db: D1Database, ids: ReturnType<typeof demoIds>
       ).bind("*"),
       db.prepare(
         "INSERT INTO intervention_rules (channel_id, min_confidence, min_impact, cooldown_sec, enabled) " +
-          "SELECT ?, 0.55, 0.5, 20, 1 WHERE NOT EXISTS (SELECT 1 FROM intervention_rules WHERE channel_id = ?)",
+          "SELECT ?, 0.55, 0.5, 0, 1 WHERE NOT EXISTS (SELECT 1 FROM intervention_rules WHERE channel_id = ?)",
       ).bind(ids.channel, ids.channel),
     ])
     .then((r) => r);

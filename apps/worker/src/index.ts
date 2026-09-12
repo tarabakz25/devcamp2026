@@ -233,12 +233,16 @@ async function maybeIntervene(
     : /決め|未定|案|提案|合意|承認|朝食|会場|使って|続けたい/.test(history)
       ? "decision"
       : "discussion";
+  const ruleRow = await db.prepare(
+    "SELECT cooldown_sec FROM intervention_rules WHERE channel_id IN ('*', ?) ORDER BY CASE channel_id WHEN '*' THEN 1 ELSE 0 END LIMIT 1",
+  ).bind(ids.channel).first<{ cooldown_sec: number }>();
+  const cooldownSec = ruleRow?.cooldown_sec ?? 0;
   const scoreDecision = decideScoreIntervention({
     topicKind,
     messages: humanMessages.map((message) => ({ userId: message.user_id, text: message.text })),
     nowSec: Date.now() / 1000,
     lastInterventionAtSec,
-    cooldownSec: 20,
+    cooldownSec,
   });
   const shouldSpeak = force || explicitMention || scoreDecision.respond;
   const currentPeople: AgreementCandidate[] = (await listStakeholders(db, ids.threadId)).map((p) => ({

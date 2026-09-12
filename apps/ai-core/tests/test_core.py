@@ -30,10 +30,10 @@ class CapturingOpenAIProvider(OpenAIProvider):
 
 
 class FakeRules:
-    def __init__(self):
+    def __init__(self, rule: dict | None = None):
         self.saved: list[dict] = []
         self._last_ts = 0.0
-        self.rule = {
+        self.rule = rule or {
             "min_confidence": 0.7, "min_impact": 0.7,
             "cooldown_sec": 600, "enabled": 1,
         }
@@ -66,6 +66,24 @@ class TestCore(unittest.TestCase):
         record(rules, "T", result, d.action)
         d2 = decide(rules, "C1", "T", result, now=1001.0)
         self.assertFalse(d2.should_act)  # クールダウン
+
+    def test_cooldown_disabled_allows_immediate_intervention(self):
+        llm = get_llm("dummy")
+        msgs = [
+            {"thread_id": "T", "channel_id": "C1", "user_id": "U1",
+             "text": "どうする? なぜ? 誰? いつ? どう?", "is_mention": 1},
+        ]
+        ctx = build_context(msgs, "T", "C1")
+        result = judge_intervention(ctx, llm)
+        rules = FakeRules({"cooldown_sec": 0, "enabled": 1, "min_confidence": 0.5, "min_impact": 0.5})
+        d = decide(rules, "C1", "T", result, now=1000.0)
+        self.assertTrue(d.should_act)
+        from ai_core import record
+        record(rules, "T", result, d.action)
+        # クールダウン0秒なら直後でも介入可能
+        d2 = decide(rules, "C1", "T", result, now=1001.0)
+        self.assertTrue(d2.should_act)
+
 
     def test_below_threshold_stays_silent(self):
         llm = get_llm("dummy")
@@ -380,6 +398,31 @@ class TestCore(unittest.TestCase):
                 os.environ.pop("XAI_API_KEY", None)
             else:
                 os.environ["XAI_API_KEY"] = old_key
+
+    def test_reintervention_ready_after_two_human_turns(self):
+        from ai_core.agents import conversation_ready
+        people = [{"user_id": "U1", "name": "User 1"}, {"user_id": "U2", "name": "User 2"}]
+        # Initial: needs 4 human turns
+        msgs = [
+            {"user_id": "U1", "text": "1"},
+            {"user_id": "U2", "text": "2"},
+            {"user_id": "U1", "text": "3"},
+        ]
+        ctx = build_context(msgs, "T", "C")
+        self.assertFalse(conversation_ready(ctx, people))
+        msgs.append({"user_id": "U2", "text": "4"})
+        ctx = build_context(msgs, "T", "C")
+        self.assertTrue(conversation_ready(ctx, people))
+
+        # After bot intervenes: 1 turn is not enough, 2 turns are ready
+        msgs.append({"user_id": "U-ROOMI", "text": "Roomi question", "is_bot": True})
+        msgs.append({"user_id": "U1", "text": "Reply 1"})
+        ctx = build_context(msgs, "T", "C")
+        self.assertFalse(conversation_ready(ctx, people))
+
+        msgs.append({"user_id": "U2", "text": "Reply 2 counter"})
+        ctx = build_context(msgs, "T", "C")
+        self.assertTrue(conversation_ready(ctx, people))
 
 
 if __name__ == "__main__":

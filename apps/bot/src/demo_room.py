@@ -436,15 +436,21 @@ _playback: dict[str, object] = {
 
 def _ensure_demo_rule(conn) -> None:
     row = conn.execute(
-        "SELECT id FROM intervention_rules WHERE channel_id = ?",
+        "SELECT id, cooldown_sec FROM intervention_rules WHERE channel_id = ?",
         (DEMO_CHANNEL_ID,),
     ).fetchone()
     if row:
+        if row["cooldown_sec"] != 0:
+            conn.execute(
+                "UPDATE intervention_rules SET cooldown_sec = 0 WHERE channel_id = ?",
+                (DEMO_CHANNEL_ID,),
+            )
+            conn.commit()
         return
     conn.execute(
         "INSERT INTO intervention_rules "
         "(channel_id, min_confidence, min_impact, cooldown_sec, enabled) "
-        "VALUES (?, 0.55, 0.5, 20, 1)",
+        "VALUES (?, 0.55, 0.5, 0, 1)",
         (DEMO_CHANNEL_ID,),
     )
     conn.commit()
@@ -974,9 +980,11 @@ def _tick_ai(conn, llm) -> dict:
         llm,
         person["user_id"],
         text,
-        persist_bot=False,
+        persist_bot=True,
         from_playback=True,
     )
+    _playback["last_intervene"] = 1 if posted["intervention"]["should_act"] else 0
+    _playback["last_reason"] = posted["intervention"]["reason"]
     _playback["ai_count"] = int(_playback["ai_count"]) + 1
     if int(_playback["ai_count"]) >= MAX_AI_REPLIES:
         _playback["mode"] = "done"
