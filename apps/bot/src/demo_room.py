@@ -984,10 +984,13 @@ def _tick_ai(conn, llm) -> dict:
         persist_bot=True,
         from_playback=True,
     )
-    _playback["last_intervene"] = 1 if posted["intervention"]["should_act"] else 0
+    intervened = bool(posted.get("bot_message") or posted.get("intervention", {}).get("should_act"))
+    _playback["last_intervene"] = 1 if intervened else 0
     _playback["last_reason"] = posted["intervention"]["reason"]
     _playback["ai_count"] = int(_playback["ai_count"]) + 1
-    if int(_playback["ai_count"]) >= MAX_AI_REPLIES:
+    if intervened:
+        _playback["mode"] = "stopped"
+    elif int(_playback["ai_count"]) >= MAX_AI_REPLIES:
         _playback["mode"] = "done"
     posted["playback"] = playback_view(conn)
     return posted
