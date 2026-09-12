@@ -25,6 +25,11 @@ tasks:
     cmds:
       - "{{.VENV}} apps/bot/src/dash_server.py"
 
+  reload:
+    desc: Dashboard APIとWebを最新コードでまとめて再起動する
+    cmds:
+      - "{{.VENV}} scripts/reload_dev.py"
+
   web-install:
     desc: Webの依存関係をインストールする
     cmds:
@@ -72,5 +77,6 @@ tasks:
     cmds:
       - "{{.VENV}} -m unittest discover -s apps/ai-core/tests"
       - "{{.VENV}} -m unittest discover -s apps/bot/tests"
+      - "{{.VENV}} -m unittest discover -s scripts/tests"
       - npm --prefix apps/worker test
       - npm --prefix apps/worker run typecheck
