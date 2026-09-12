@@ -34,6 +34,7 @@ def main() -> None:
         {"user_id": "U1", "text": "新機能の仕様どうする?", "is_mention": 0},
         {"user_id": "U2", "text": "決済フローが未確定で止まってる", "is_mention": 0},
         {"user_id": "U3", "text": "なぜ止まってるんだっけ?", "is_mention": 0},
+        {"user_id": "U4", "text": "判断者と適用ルールがまだ分からない", "is_mention": 0},
     ]
     ctx = build_context(msgs, "DEMO-1", "C1")
     summary = observe(ctx, llm)

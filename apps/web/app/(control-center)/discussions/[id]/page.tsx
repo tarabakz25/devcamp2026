@@ -56,6 +56,9 @@ export default function DiscussionDetailPage() {
           </div>
           <div className="discussion-detail-actions">
             <span className={`discussion-status ${discussion.status}`}>{status.label}</span>
+            <Link href={`/?topic=${encodeURIComponent(discussion.id)}`} className="discussion-graph-link">
+              グラフで見る
+            </Link>
             {discussion.liveDemo && (
               <Link href="/demo" className="discussion-live-link">
                 ライブチャット

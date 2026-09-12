@@ -8,7 +8,7 @@ AI_CORE = Path(__file__).resolve().parent.parent.parent / "ai-core"
 sys.path.insert(0, str(BOT_SRC))
 sys.path.insert(0, str(AI_CORE))
 
-from ai_core import get_llm
+from ai_core import DummyLLM, get_llm
 from dashboard import build_fastapi_app
 from demo_room import (
     DEMO_THREAD_ID,
@@ -30,13 +30,24 @@ from demo_room import (
 from store import connect, upsert_stakeholder
 
 
+class EmbedSpyLLM(DummyLLM):
+    def __init__(self):
+        self.embed_calls = 0
+
+    def embed(self, text, dim=256):
+        self.embed_calls += 1
+        return super().embed(text, dim)
+
+
 class TestDemoRoom(unittest.TestCase):
     def setUp(self):
         _reset_playback()
         self.conn = connect()
         self.llm = get_llm("dummy")
+        from demo_room import switch_scenario
+        switch_scenario(self.conn, "breakfast", "dummy")
 
-    def test_seed_stakeholders_and_post_triggers_ai(self):
+    def test_seed_stakeholders_waits_for_context_before_ai(self):
         state = room_state(self.conn, "dummy")
         names = {p["user_name"] for p in state["stakeholders"]}
         real_names = {p["real_name"] for p in SEED_STAKEHOLDERS}
@@ -49,17 +60,33 @@ class TestDemoRoom(unittest.TestCase):
             self.conn, self.llm, "U-SASAKI", "仕様どうする?"
         )
         self.assertEqual(first["message"]["user_name"], "高橋さくら")
-        self.assertTrue(first["intervention"]["should_act"])
-        self.assertIsNotNone(first["bot_message"])
-        self.assertTrue(first["bot_message"]["is_bot"])
-        self.assertNotIn("途中参加", first["bot_message"]["text"])
-        self.assertIn("@", first["bot_message"]["text"])
+        self.assertFalse(first["intervention"]["should_act"])
+        self.assertIsNone(first["bot_message"])
 
         second = post_user_message(
-            self.conn, self.llm, "U-OZAKI", "なぜ止まってるんだっけ?"
+            self.conn, self.llm, "U-OGASAHARA", "なぜ止まってるんだっけ?"
         )
         self.assertFalse(second["intervention"]["should_act"])
         self.assertIsNone(second["bot_message"])
+
+        third = post_user_message(
+            self.conn,
+            self.llm,
+            "U-SAKUMA",
+            "決め方が分からないままだと学生側は困るので、1階を続けたいです。",
+        )
+        self.assertFalse(third["intervention"]["should_act"])
+        self.assertIsNone(third["bot_message"])
+
+        fourth = post_user_message(
+            self.conn,
+            self.llm,
+            "U-SASAKI",
+            "スタッフ側の利用条件も決める必要があります。",
+        )
+        self.assertTrue(fourth["intervention"]["should_act"])
+        self.assertIsNotNone(fourth["bot_message"])
+        self.assertIn("ルール", fourth["bot_message"]["text"])
 
     def test_mention_roomi_and_force_intervene(self):
         post_user_message(self.conn, self.llm, "U-SASAKI", "仕様どうする?")
@@ -119,14 +146,21 @@ class TestDemoRoom(unittest.TestCase):
         self.assertIsNone(started["bot_message"])
 
         latest = started
-        for _ in range(20):
-            if latest["playback"]["mode"] != "script":
-                break
+        for expected_index in (2, 3):
             latest = play_tick(self.conn, self.llm)
+            self.assertEqual(latest["playback"]["mode"], "script")
+            self.assertEqual(latest["playback"]["index"], expected_index)
+            self.assertIsNone(latest["bot_message"])
+
+        latest = play_tick(self.conn, self.llm)
         self.assertEqual(latest["playback"]["mode"], "ai")
+        self.assertEqual(latest["playback"]["index"], 4)
         self.assertEqual(latest["playback"].get("intervene"), 1)
         self.assertIsNotNone(latest["bot_message"])
         self.assertTrue(latest["bot_message"]["is_bot"])
+        self.assertIn("前提候補", latest["bot_message"]["text"])
+        self.assertIn("含む決まり", latest["bot_message"]["text"])
+        self.assertEqual(latest["bot_message"]["text"].count("？"), 1)
 
         ai_turn = play_tick(self.conn, self.llm)
         self.assertEqual(ai_turn["playback"]["mode"], "ai")
@@ -135,6 +169,13 @@ class TestDemoRoom(unittest.TestCase):
         stopped = stop_playback(self.conn, "dummy")
         self.assertEqual(stopped["playback"]["mode"], "stopped")
         self.assertLessEqual(ai_turn["playback"]["ai_count"], MAX_AI_REPLIES)
+
+    def test_demo_rag_does_not_use_the_configured_external_embedding_path(self):
+        llm = EmbedSpyLLM()
+        start_playback(self.conn, llm)
+        for _ in range(3):
+            play_tick(self.conn, llm)
+        self.assertEqual(llm.embed_calls, 0)
 
 
 class TestDemoAPI(unittest.TestCase):
@@ -164,8 +205,8 @@ class TestDemoAPI(unittest.TestCase):
         )
         self.assertEqual(posted.status_code, 200)
         data = posted.json()
-        self.assertTrue(data["intervention"]["should_act"])
-        self.assertTrue(data["bot_message"]["is_bot"])
+        self.assertFalse(data["intervention"]["should_act"])
+        self.assertIsNone(data["bot_message"])
 
         created = self.client.post(
             "/api/demo/stakeholders",
@@ -186,6 +227,43 @@ class TestDemoAPI(unittest.TestCase):
         self.assertGreaterEqual(len(play["messages"]), 1)
         self.assertEqual(play["messages"][0]["user_name"], "高橋さくら")
 
+    def test_switch_scenario_and_playback(self):
+        # 1. シナリオ一覧取得
+        scenarios_res = self.client.get("/api/demo/scenarios")
+        self.assertEqual(scenarios_res.status_code, 200)
+        scenarios_data = scenarios_res.json()
+        ids = [s["id"] for s in scenarios_data["scenarios"]]
+        self.assertIn("breakfast", ids)
+        self.assertIn("eblock", ids)
+        self.assertIn("hygiene", ids)
+
+        # 2. eblock シナリオに切り替え
+        switch_res = self.client.post("/api/demo/scenario", json={"scenario_id": "eblock"})
+        self.assertEqual(switch_res.status_code, 200)
+        eblock_room = switch_res.json()
+        self.assertEqual(eblock_room["current_scenario"], "eblock")
+        self.assertEqual(eblock_room["title"], "BASEのe-block充電ドック運用")
+        eblock_names = {s["user_name"] for s in eblock_room["stakeholders"]}
+        self.assertIn("宮野しゅうた", eblock_names)
+        self.assertIn("河野めぐみ", eblock_names)
+
+        # 3. eblock で再生開始
+        play_res = self.client.post("/api/demo/play/start")
+        self.assertEqual(play_res.status_code, 200)
+        play_data = play_res.json()
+        self.assertEqual(play_data["playback"]["mode"], "script")
+        self.assertEqual(play_data["messages"][0]["user_name"], "宮野しゅうた")
+        self.assertIn("e-block", play_data["messages"][0]["text"])
+
+        # 4. hygiene シナリオに直接再生開始
+        hygiene_play = self.client.post("/api/demo/play/start", json={"scenario_id": "hygiene"})
+        self.assertEqual(hygiene_play.status_code, 200)
+        hygiene_data = hygiene_play.json()
+        self.assertEqual(hygiene_data["title"], "キッチンのふきん除菌・洗濯運用")
+        self.assertEqual(hygiene_data["messages"][0]["user_name"], "中渓いっしん")
+        self.assertIn("ふきん", hygiene_data["messages"][0]["text"])
+
 
 if __name__ == "__main__":
     unittest.main()
+

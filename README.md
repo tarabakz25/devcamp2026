@@ -21,13 +21,13 @@ task demo     # BotのE2Eデモ (dry-run)
 task bot      # Slack Bot起動 (要 .env)
 task dash     # デモチャット用 Dashboard API
 task web      # Web起動 (初回は task web-install)
+task reload   # 起動中のDashboard APIとWebを止め、最新コードでまとめて再起動
 ```
 
-実Slackを使わずにデモする場合:
+実Slackを使わずにデモする場合は、`task reload` でDashboard APIとWebをまとめて起動できる。停止は `Ctrl+C`。
 
 ```bash
-task dash
-task web
+task reload
 ```
 
 ブラウザで [http://localhost:3000/demo](http://localhost:3000/demo) を開く。関係者を指定して発言すると、同じAIパイプラインが合意不足を分析する。「実例を再生」で朝食会場スレを流し、決めること、必要関係者、各人の立場、Roomiの次の確認を生成する。チャット上の名前は架空名で、担当の対応は [http://localhost:3000/demo/cast](http://localhost:3000/demo/cast) で確認できる。`XAI_API_KEY` があればGrokが分析し、未設定なら決定的なdummy分析で動く。
@@ -82,6 +82,9 @@ Slack履歴からステークホルダーを抽出する場合:
 ```bash
 task stakeholders CHANNEL=C123... LIMIT=100
 ```
+
+カタログは取得元チャンネル単位で保存・検索する。旧形式で取得元が空のプロフィールは
+別チャンネルへ自動流用しないため、利用するチャンネルごとに上のbackfillを再実行する。
 
 ## 本番パス（Dockerあり）
 

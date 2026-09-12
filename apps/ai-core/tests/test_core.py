@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ai_core import (
+    OpenAIProvider,
     build_context,
     compose_reply,
     decide,
@@ -12,6 +13,20 @@ from ai_core import (
     judge_intervention,
     make_handoff,
 )
+
+
+class AlwaysInterveneLLM:
+    def needs_intervention(self, _context_summary):
+        return True, "今すぐ介入したい"
+
+
+class CapturingOpenAIProvider(OpenAIProvider):
+    def __init__(self):
+        self.calls = []
+
+    def _chat(self, system, user, **_kwargs):
+        self.calls.append((system, user))
+        return "前提を確認した。適用する決まりはどれ？"
 
 
 class FakeRules:
@@ -72,6 +87,129 @@ class TestCore(unittest.TestCase):
         self.assertFalse(no)
         self.assertIn("介入不要", idle)
 
+    def test_waits_for_another_viewpoint_even_when_llm_says_intervene(self):
+        people = [
+            {"user_id": "U1", "name": "高橋", "role": "寮スタッフ"},
+            {"user_id": "U2", "name": "伊藤", "role": "寮スタッフ"},
+            {"user_id": "U3", "name": "中村", "role": "学生"},
+        ]
+        staff_only = build_context(
+            [
+                {"user_id": "U1", "text": "2階へ移すのはどうでしょう？", "is_mention": 0},
+                {"user_id": "U2", "text": "1階はスタッフ専用です", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        waiting = judge_intervention(staff_only, AlwaysInterveneLLM(), people)
+        self.assertEqual(waiting.confidence, 0.0)
+        self.assertIn("別の立場", waiting.reason)
+
+        with_student = build_context(
+            [
+                *staff_only.messages,
+                {"user_id": "U2", "text": "学生は2階を使ってください", "is_mention": 0},
+                {"user_id": "U3", "text": "準備が楽なので1階を続けたい", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        ready = judge_intervention(with_student, AlwaysInterveneLLM(), people)
+        self.assertEqual(ready.confidence, 1.0)
+
+    def test_two_opposing_messages_still_wait_for_more_context(self):
+        people = [
+            {"user_id": "U1", "name": "高橋", "role": "寮スタッフ"},
+            {"user_id": "U2", "name": "中村", "role": "学生"},
+        ]
+        context = build_context(
+            [
+                {"user_id": "U1", "text": "学生は2階を使ってください", "is_mention": 0},
+                {"user_id": "U2", "text": "準備が楽なので1階を続けたい", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        result = judge_intervention(context, AlwaysInterveneLLM(), people)
+        self.assertEqual(result.confidence, 0.0)
+
+        ready_context = build_context(
+            [
+                *context.messages,
+                {"user_id": "U1", "text": "1階はスタッフ居住エリアです", "is_mention": 0},
+                {"user_id": "U2", "text": "学生側の準備負担があります", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        ready = judge_intervention(ready_context, AlwaysInterveneLLM(), people)
+        self.assertEqual(ready.confidence, 1.0)
+
+    def test_three_people_from_the_same_side_are_not_enough(self):
+        people = [
+            {"user_id": f"U{index}", "name": f"スタッフ{index}", "role": "寮スタッフ"}
+            for index in range(1, 4)
+        ]
+        context = build_context(
+            [
+                {"user_id": "U1", "text": "2階を使う案です", "is_mention": 0},
+                {"user_id": "U2", "text": "1階は居住エリアです", "is_mention": 0},
+                {"user_id": "U3", "text": "同じ案でお願いします", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        result = judge_intervention(context, AlwaysInterveneLLM(), people)
+        self.assertEqual(result.confidence, 0.0)
+
+    def test_two_different_roles_with_the_same_question_still_wait(self):
+        people = [
+            {"user_id": "U1", "name": "高橋", "role": "寮スタッフ"},
+            {"user_id": "U2", "name": "中村", "role": "学生"},
+        ]
+        context = build_context(
+            [
+                {"user_id": "U1", "text": "2階案はどうですか？", "is_mention": 0},
+                {"user_id": "U2", "text": "いつ決めますか？", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        result = judge_intervention(context, AlwaysInterveneLLM(), people)
+        self.assertEqual(result.confidence, 0.0)
+
+    def test_negated_resistance_does_not_create_a_two_message_conflict(self):
+        people = [
+            {"user_id": "U1", "name": "高橋", "role": "寮スタッフ"},
+            {"user_id": "U2", "name": "伊藤", "role": "寮スタッフ"},
+        ]
+        context = build_context(
+            [
+                {"user_id": "U1", "text": "学生は2階を使ってください", "is_mention": 0},
+                {
+                    "user_id": "U2",
+                    "text": "1階を続けたいわけではないし、2階案に反対ではないです",
+                    "is_mention": 0,
+                },
+            ],
+            "T",
+            "C1",
+        )
+        result = judge_intervention(context, AlwaysInterveneLLM(), people)
+        self.assertEqual(result.confidence, 0.0)
+
+    def test_only_latest_mention_bypasses_readiness(self):
+        old_mention = build_context(
+            [
+                {"user_id": "U1", "text": "@Roomi 整理して", "is_mention": 1},
+                {"user_id": "U1", "text": "続きです", "is_mention": 0},
+            ],
+            "T",
+            "C1",
+        )
+        result = judge_intervention(old_mention, AlwaysInterveneLLM())
+        self.assertEqual(result.confidence, 0.0)
+
     def test_compose_reply_mentions_people(self):
         llm = get_llm("dummy")
         msgs = [
@@ -89,8 +227,122 @@ class TestCore(unittest.TestCase):
             "方針が食い違っている",
         )
         self.assertIn("@高橋さくら", text)
-        self.assertIn("@中村蓮", text)
+        self.assertIn("ルール", text)
+        self.assertEqual(text.count("？"), 1)
         self.assertNotIn("途中参加", text)
+
+    def test_dummy_reply_does_not_turn_negated_or_registered_data_into_fact(self):
+        llm = get_llm("dummy")
+        text = llm.reply_as_roomi(
+            "高橋 (寮スタッフ, U1): 朝食の搬入は許可されていない。1階はスタッフ専用ではない。",
+            [{
+                "user_id": "U1",
+                "name": "高橋",
+                "role": "寮スタッフ",
+                "interests": "A棟1階への搬入は許可済み。1階はスタッフ専用",
+            }],
+        )
+        self.assertNotIn("許可済み", text)
+        self.assertNotIn("居住スタッフ用", text)
+        self.assertIn("誰がどのルール", text)
+
+    def test_dummy_reply_does_not_invent_a_delivery_gap_for_other_breakfast_topics(self):
+        llm = get_llm("dummy")
+        text = llm.reply_as_roomi(
+            "中村 (学生, U2): 朝食会場をB棟に変えたいです。",
+            [{"user_id": "U2", "name": "中村", "role": "学生", "interests": "B棟"}],
+        )
+        self.assertNotIn("搬入", text)
+        self.assertIn("誰がどのルール", text)
+
+    def test_dummy_reply_does_not_repeat_known_rule_and_owner_questions(self):
+        llm = get_llm("dummy")
+        text = llm.reply_as_roomi(
+            "高橋 (責任者, U1): 適用規則は規約第10条で、最終判断者は私です。",
+            [{"user_id": "U1", "name": "高橋", "role": "責任者", "interests": "運用"}],
+        )
+        self.assertNotIn("誰がどのルール", text)
+        self.assertNotIn("最終判断者は誰", text)
+        self.assertIn("条件や懸念", text)
+
+    def test_dummy_reply_keeps_negated_or_ambiguous_rule_and_owner_as_unknown(self):
+        llm = get_llm("dummy")
+        for history in (
+            "適用規則は規約第10条ではない。最終判断者はまだ決まっていない。",
+            "適用規則は規約第10条か第11条。決裁者は田中ではない。",
+            "適用規則は規約第10条で検討中です。最終判断者は田中ですという案です。",
+            "適用規則は規約第10条で仮置きです。決裁者は田中ですとの提案です。",
+            "候補として適用規則は規約第10条です。候補として最終判断者は高橋です。",
+        ):
+            with self.subTest(history=history):
+                text = llm.reply_as_roomi(
+                    history,
+                    [{"user_id": "U1", "name": "高橋", "role": "責任者", "interests": "運用"}],
+                )
+                self.assertIn("誰がどのルール", text)
+
+    def test_dummy_reply_keeps_conflicting_rule_and_owner_claims_open(self):
+        llm = get_llm("dummy")
+        text = llm.reply_as_roomi(
+            "高橋: 適用規則は規約第10条です。最終判断者は高橋です。\n"
+            "伊藤: 適用規則は規約第11条です。最終判断者は伊藤です。",
+            [
+                {"user_id": "U1", "name": "高橋", "role": "責任者", "interests": "運用"},
+                {"user_id": "U2", "name": "伊藤", "role": "責任者", "interests": "運用"},
+            ],
+        )
+        self.assertNotIn("条件や懸念", text)
+        self.assertIn("誰がどのルール", text)
+
+    def test_dummy_reply_resolves_self_declared_owner_per_speaker(self):
+        llm = get_llm("dummy")
+        text = llm.reply_as_roomi(
+            "高橋 (責任者, U1): 適用規則は規約第10条です。最終判断者は私です。\n"
+            "伊藤 (責任者, U2): 適用規則は規約第10条です。最終判断者は私です。",
+            [
+                {"user_id": "U1", "name": "高橋", "role": "責任者", "interests": "運用"},
+                {"user_id": "U2", "name": "伊藤", "role": "責任者", "interests": "運用"},
+            ],
+        )
+        self.assertNotIn("条件や懸念", text)
+        self.assertIn("最終判断者は誰", text)
+
+    def test_dummy_reply_asks_again_when_permission_scope_claims_conflict(self):
+        llm = get_llm("dummy")
+        text = llm.reply_as_roomi(
+            "高橋 (寮スタッフ, U1): A棟1階への朝食の搬入許可は食事利用まで含む。\n"
+            "伊藤 (寮スタッフ, U2): A棟1階への朝食の搬入許可は食事利用まで含みません。",
+            [
+                {"user_id": "U1", "name": "高橋", "role": "寮スタッフ", "interests": "居住"},
+                {"user_id": "U2", "name": "伊藤", "role": "寮スタッフ", "interests": "居住"},
+            ],
+        )
+        self.assertIn("この搬入許可は", text)
+
+    def test_dummy_reply_moves_past_an_answered_permission_scope(self):
+        llm = get_llm("dummy")
+        text = llm.reply_as_roomi(
+            "高橋 (寮スタッフ, U1): 朝食の搬入許可は食事利用まで含む。",
+            [{"user_id": "U1", "name": "高橋", "role": "寮スタッフ", "interests": "居住"}],
+        )
+        self.assertNotIn("この搬入許可は", text)
+        self.assertIn("誰がどのルール", text)
+
+    def test_openai_reply_prompt_prioritizes_missing_prerequisites(self):
+        llm = CapturingOpenAIProvider()
+        llm.reply_as_roomi(
+            "高橋 (寮スタッフ, U1): 1階はスタッフの居住エリアです",
+            [{"user_id": "U1", "name": "高橋", "role": "寮スタッフ", "interests": "1階の利用権限"}],
+            "方針が食い違っている",
+        )
+        system, user = llm.calls[0]
+        self.assertIn("合意を聞く前", system)
+        self.assertIn("適用する決まり", system)
+        self.assertIn("書かれていない事実・決まり・許可を作らない", system)
+        self.assertIn("確認済みの事実とは断定しない", system)
+        self.assertIn("同じ質問を繰り返さない", system)
+        self.assertIn("現在の合意や確定事実ではない", user)
+        self.assertIn("現在の発言ログ", user)
 
     def test_dummy_stakeholder_reply(self):
         llm = get_llm("dummy")

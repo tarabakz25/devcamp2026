@@ -19,7 +19,7 @@ sys.path.insert(0, str(AI_CORE))
 
 from ai_core import extract_stakeholders, get_llm  # noqa: E402
 from gateway import normalize_event  # noqa: E402
-from store import connect, save_message  # noqa: E402
+from store import connect, save_message, upsert_stakeholder_profile  # noqa: E402
 
 
 def load_dotenv(path: str = ".env") -> None:
@@ -134,6 +134,7 @@ def main() -> None:
     llm = get_llm(os.environ.get("LLM_PROVIDER", "dummy"))
     print(f"スレッド数: {len(by_thread)} / LLM={llm.__class__.__name__}")
 
+    user_profiles: dict[str, dict] = {}
     for tid, messages in sorted(by_thread.items()):
         holders = extract_stakeholders(messages, llm)
         for h in holders:
@@ -144,11 +145,34 @@ def main() -> None:
                 (tid, h.user_id, name_of(h.user_id),
                  h.role, h.interests, h.messages),
             )
+            existing = user_profiles.setdefault(h.user_id, {"role": "", "interests": set()})
+            if h.role and not existing["role"]:
+                existing["role"] = h.role
+            if h.interests:
+                existing["interests"].add(h.interests)
         conn.commit()
         print(f"\n[{tid}] {len(messages)}件")
         for h in holders:
             print(f"  - {name_of(h.user_id)} ({h.user_id}) "
                   f"発言{h.messages}: {h.role} / {h.interests}")
+
+    print("\n組織全体のステークホルダーカタログを構築 & ベクトル化中 (RAG用)...")
+    for uid, data in user_profiles.items():
+        uname = name_of(uid)
+        role = data["role"]
+        interests_str = "、".join(sorted(data["interests"])) if data["interests"] else ""
+        profile_text = f"氏名: {uname} / 役割: {role} / 担当・関心: {interests_str}"
+        emb = llm.embed(profile_text) if hasattr(llm, "embed") else None
+        upsert_stakeholder_profile(
+            conn,
+            user_id=uid,
+            name=uname,
+            role=role,
+            interests=interests_str,
+            embedding=emb,
+            channel_id=args.channel,
+        )
+        print(f"  [カタログ登録] {uname} ({uid}): {role} - {interests_str}")
 
 
 if __name__ == "__main__":

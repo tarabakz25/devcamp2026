@@ -110,6 +110,27 @@ class TestDashboard(unittest.TestCase):
             {"nodes": [], "edges": []},
         )
 
+    def test_thread_agreements_mock_and_endpoint(self):
+        from starlette.testclient import TestClient
+        from dashboard import build_fastapi_app, thread_agreements
+
+        conn = connect()
+        res = thread_agreements(conn, "trash")
+        self.assertIn("decisions", res)
+        self.assertEqual(len(res["decisions"]), 1)
+        self.assertEqual(res["decisions"][0]["id"], "dec-trash-1")
+        self.assertEqual(res["decisions"][0]["status"], "decided")
+
+        app = build_fastapi_app()
+        if app is not None:
+            client = TestClient(app)
+            response = client.get("/api/threads/trash/agreements")
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertEqual(len(data["decisions"]), 1)
+            self.assertEqual(data["decisions"][0]["id"], "dec-trash-1")
+            self.assertEqual(data["decisions"][0]["status"], "decided")
+
 
 if __name__ == "__main__":
     unittest.main()

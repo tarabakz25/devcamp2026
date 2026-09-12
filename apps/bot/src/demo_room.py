@@ -7,7 +7,9 @@ import time
 from pipeline import ROOMI_NAME, ROOMI_USER_ID, evaluate_thread, process_event
 from store import (
     delete_stakeholder,
+    load_stakeholder_catalog,
     upsert_stakeholder,
+    upsert_stakeholder_profile,
     upsert_user,
 )
 
@@ -104,6 +106,108 @@ SEED_STAKEHOLDERS = [
     },
 ]
 
+EBLOCK_STAKEHOLDERS = [
+    {
+        "user_id": "U-MIYANO",
+        "user_name": "宮野しゅうた",
+        "real_name": "宮野柊太",
+        "role": "学生（BASE利用者）",
+        "interests": "BASEの机付近に電源がなく困っている。e-block充電ドックかAC延長コードを常設してほしい",
+        "avatar": "",
+    },
+    {
+        "user_id": "U-KANO",
+        "user_name": "叶としのぶ",
+        "real_name": "叶俊信",
+        "role": "学務スタッフ",
+        "interests": "学務の所管ではない。論点を整理し、BASEのコンセントから机に届くAC延長コード手配で解決を図りたい",
+        "avatar": "",
+    },
+    {
+        "user_id": "U-KITAMURA",
+        "user_name": "北村みき",
+        "real_name": "北村美樹",
+        "role": "寮スタッフ",
+        "interests": "e-blockはパートナー連携チームが設置したもの。担当の河野さんに確認を繋ぐ",
+        "avatar": "",
+    },
+    {
+        "user_id": "U-KAWANO",
+        "user_name": "河野めぐみ",
+        "real_name": "河野愛美",
+        "role": "パートナー連携（e-block管理者）",
+        "interests": "パナソニック無償貸与のe-block本体を管理。充電ドックは余分がなくBASE常設不可。コード類はパートナー予算外なので寮チーム側で検討してほしい",
+        "avatar": "",
+    },
+    {
+        "user_id": "U-TANAKA",
+        "user_name": "田中よしたか",
+        "real_name": "田中義崇",
+        "role": "パートナーディレクター",
+        "interests": "全体の配置方針と予算承認。なぜ学校側が購入する必要があるのか、居室のコンセント利用状況も含め精査したい",
+        "avatar": "",
+    },
+    {
+        "user_id": "U-AIKI",
+        "user_name": "藤井湊",
+        "real_name": "相木絆煌",
+        "role": "学生自治",
+        "interests": "学生の作業環境の利便性を確保したい。利用ルールを明確にして解決したい",
+        "avatar": "",
+    },
+]
+
+HYGIENE_STAKEHOLDERS = [
+    {
+        "user_id": "U-NAKATANI",
+        "user_name": "中渓いっしん",
+        "real_name": "中渓一心",
+        "role": "学生（寮生）",
+        "interests": "ふきんの除菌方法。普通の洗剤洗いや放置による異臭・雑菌繁殖を防ぐため、ハイター/オキシクリーンのつけ置きルールを作りたい",
+        "avatar": "",
+    },
+    {
+        "user_id": "U-KIAH",
+        "user_name": "森田カイ",
+        "real_name": "メリットキア",
+        "role": "学生（寮長・取りまとめ）",
+        "interests": "朝食受け取りの月水金にふきん洗濯・漂白を行う運用を試したい。無理のないルーティン化を目指す",
+        "avatar": "",
+    },
+    {
+        "user_id": "U-TOYAMA",
+        "user_name": "外山えれな",
+        "real_name": "外山英玲那",
+        "role": "学生（当番制提案）",
+        "interests": "特定の人の負担にならないよう、パン当番や点呼の人員を調整して「ふきん当番」を正式に設置したい",
+        "avatar": "",
+    },
+    {
+        "user_id": "U-TAKEDA",
+        "user_name": "武田りこ",
+        "real_name": "武田璃香",
+        "role": "学生（現状共有）",
+        "interests": "漂白前後の汚れの落ち具合など現状を共有し、衛生状態の改善を促したい",
+        "avatar": "",
+    },
+    {
+        "user_id": "U-SASAKI",
+        "user_name": "高橋さくら",
+        "real_name": "佐々木美優",
+        "role": "寮スタッフ",
+        "interests": "キッチンの衛生環境の維持。備品（漂白剤・バケツ等）の手配可否や共用エリアの運用ルールを管理",
+        "avatar": "",
+    },
+    {
+        "user_id": "U-OGASAHARA",
+        "user_name": "伊藤あかり",
+        "real_name": "小笠原愛",
+        "role": "寮スタッフ",
+        "interests": "キッチン共用部の衛生と生活環境の質を保ちたい。運用責任と管理体制を明確にするべき",
+        "avatar": "",
+    },
+]
+
 LEGACY_SEED_NAMES = {
     "葵",
     "凛",
@@ -122,7 +226,7 @@ LEGACY_SEED_NAMES = {
     "相木絆煌",
 }
 
-SCENARIO_MESSAGES = [
+SCENARIO_BREAKFAST_MESSAGES = [
     (
         "U-SASAKI",
         "朝食会場についてご相談です。朝食の搬入場所がA棟1階キッチンである点については、事前に許可しているため認識しています。一方で、A棟1階キッチンはA棟1階スタッフの使用権限がある場所のため、朝食をとる場所については、A棟2階キッチンでの運用とすることは可能でしょうか？また、炊飯器などの電化製品についても、基本的にA棟1階の居住スタッフに使用権限があるため、炊飯器のうち何台かはスタッフ用として確保したいです。",
@@ -185,6 +289,141 @@ SCENARIO_MESSAGES = [
     ),
 ]
 
+SCENARIO_EBLOCK_MESSAGES = [
+    (
+        "U-MIYANO",
+        "Baseのe-block、充電器を置かないと誰も充電できないので文鎮になってます。(充電コードもなく、個人で使うとなると来てから充電する必要があります。) めっちゃもったいない＆いつも困ってるので、HOMEかOFFICEから1つ拝借できませんか？",
+    ),
+    (
+        "U-KANO",
+        "少なくとも学務の管轄ではないですね。パートナー連携チームでしょうか？",
+    ),
+    (
+        "U-KITAMURA",
+        "河野さんが設置してくれたこちらですね。今お休み中のため、週明け確認いただけるようメンションしておきます！ @河野愛美",
+    ),
+    (
+        "U-MIYANO",
+        "ありがとうございます！よろしくお願いします。",
+    ),
+    (
+        "U-KAWANO",
+        "お待たせしました。INのところにType-Cを挿したら個人でも充電できませんか？",
+    ),
+    (
+        "U-KANO",
+        "充電ドックがないと、使った後に私物のUSB Type-C充電器を使って充電する人がおらず、充電されていないものばかりになって文鎮化する、ということかと。",
+    ),
+    (
+        "U-KAWANO",
+        "であれば、e-blockに対して充電ドックはそもそも数が足りず、限られたドックをROOMSに置くのは難しいです。文鎮化してしまうくらいなら、OFFICEから必要なタイミングで持っていって返却する運用にしてはどうでしょうか？誰に相談すればいいのかな？",
+    ),
+    (
+        "U-MIYANO",
+        "本質的にはまともな給電口が机付近にないので困っています！利便性を担保するために充電ドックがほしいので、OFFICEから都度持っていく運用はあまり意味がないと思います。ドックが難しければ、延長ケーブル等余っているものをBASEに配置していただけたら助かります。",
+    ),
+    (
+        "U-KAWANO",
+        "パナソニックさんからの無償貸与でe-blockの管理を担当していますが、パートナー予算で延長コードまで手配するのは少し違う気がしています。コードやケーブルは寮チームや施設管理として手配いただくかご検討いただけますか？ @田中義崇",
+    ),
+    (
+        "U-TANAKA",
+        "ちょっと良く分からないのですが、ROOMS居室、BASE他共用施設ともコンセントは結構あると思いますが、なぜ学校が買わなければならないんでしたっけ？",
+    ),
+    (
+        "U-KANO",
+        "横から失礼します通訳です。「本質的にはBASEの机付近に電源がないのでPC利用で困っている」なので、ミニマムな解決策はBASEのコンセントから机付近に届くAC延長タップを用意することです。",
+    ),
+    (
+        "U-KAWANO",
+        "Baseに置いているe-block充電用には延長コードや充電ケーブルが必要です。ここは個人でやる想定でしたが、今回の宮野くんの提案は学校側でコード類を手配してほしいとのこと。手配はパートナーチーム所管ではないため、寮・学校側で検討してほしいという主旨です。",
+    ),
+]
+
+SCENARIO_HYGIENE_MESSAGES = [
+    (
+        "U-NAKATANI",
+        "【ふきんの除菌方法について】今の運用ではふきんは掃除の時に洗われていますが、数日放置されたり普通の洗剤で洗われたりして衛生面が気になります。夏で暑くなるこの時期に、漂白剤か熱湯消毒でバケツつけ置きにする運用を作りませんか？",
+    ),
+    (
+        "U-KIAH",
+        "漂白剤あるよ！どこに置くか決めて運用しよう。",
+    ),
+    (
+        "U-NAKATANI",
+        "B棟にはないっぽい。布巾用って書いてる洗剤は漂白剤じゃなかったので、共有の置き場や買い足しが必要かも。",
+    ),
+    (
+        "U-TOYAMA",
+        "今朝キッチンにあったふきんを一心が漂白剤につけて洗ってくれたのですが、それでも結構水が濁ってました。ちゃんと『ふきん当番』を作った方がいいと思います。朝ごはんのパン当番や点呼の人員を調整して、ふきん・掃除に回せませんか？",
+    ),
+    (
+        "U-TAKEDA",
+        "漂白前後のビフォーアフター写真です。やっぱり定期的に漂白しないと不衛生ですね。",
+    ),
+    (
+        "U-KIAH",
+        "毎週金曜日に朝食受け取りのついでに洗濯しようって話をしてました。朝食受け取りがある月水金にふきん洗濯と漂白をする運用はどうだろう？一旦これで試してみない？",
+    ),
+    (
+        "U-TOYAMA",
+        "担当の人が良ければ頻度的にも月水金で良さそう！早めに寮の当番として正式化したいけど、新しい当番の追加って次回の寮ミーティングまで待つ必要がありますか？",
+    ),
+    (
+        "U-NAKATANI",
+        "長くつけ置きできるオキシクリーンに変えたんだっけ？洗剤の管理場所と、当番が誰になるかを決めておきたいです。",
+    ),
+]
+
+# 後方互換性用
+SCENARIO_MESSAGES = SCENARIO_BREAKFAST_MESSAGES
+
+SCENARIOS: dict[str, dict] = {
+    "breakfast": {
+        "id": "breakfast",
+        "title": "朝食会場を決めよう",
+        "description": "A棟1階キッチン vs A棟2階/B棟。生活環境と利用権限をめぐる議論",
+        "channel_name": "03_rooms_discussion",
+        "stakeholders": SEED_STAKEHOLDERS,
+        "messages": SCENARIO_BREAKFAST_MESSAGES,
+    },
+    "eblock": {
+        "id": "eblock",
+        "title": "BASEのe-block充電ドック運用",
+        "description": "BASEの充電環境とe-block文鎮化。充電ドックかAC延長コードか、管理所管・予算の議論",
+        "channel_name": "03_rooms_discussion",
+        "stakeholders": EBLOCK_STAKEHOLDERS,
+        "messages": SCENARIO_EBLOCK_MESSAGES,
+    },
+    "hygiene": {
+        "id": "hygiene",
+        "title": "キッチンのふきん除菌・洗濯運用",
+        "description": "放置されがちなキッチンのふきん除菌・衛生運用と当番制の合意形成",
+        "channel_name": "03_rooms_discussion",
+        "stakeholders": HYGIENE_STAKEHOLDERS,
+        "messages": SCENARIO_HYGIENE_MESSAGES,
+    },
+}
+
+_current_scenario_id = "breakfast"
+
+
+def get_current_scenario_id() -> str:
+    return _current_scenario_id
+
+
+def get_scenario(scenario_id: str | None = None) -> dict:
+    sid = scenario_id or _current_scenario_id
+    return SCENARIOS.get(sid, SCENARIOS["breakfast"])
+
+
+def get_current_messages() -> list[tuple[str, str]]:
+    return get_scenario()["messages"]
+
+
+def get_current_stakeholders() -> list[dict]:
+    return get_scenario()["stakeholders"]
+
 _playback: dict[str, object] = {
     "mode": "idle",
     "index": 0,
@@ -211,11 +450,13 @@ def _ensure_demo_rule(conn) -> None:
     conn.commit()
 
 
-def ensure_demo_room(conn) -> None:
+def ensure_demo_room(conn, scenario_id: str | None = None) -> None:
+    scenario = get_scenario(scenario_id or _current_scenario_id)
+    ch_name = scenario.get("channel_name", DEMO_CHANNEL_NAME)
     conn.execute(
         "INSERT INTO channels (id, name) VALUES (?, ?) "
         "ON CONFLICT(id) DO UPDATE SET name=excluded.name",
-        (DEMO_CHANNEL_ID, DEMO_CHANNEL_NAME),
+        (DEMO_CHANNEL_ID, ch_name),
     )
     conn.execute(
         "INSERT OR IGNORE INTO threads (id, channel_id) VALUES (?, ?)",
@@ -223,6 +464,8 @@ def ensure_demo_room(conn) -> None:
     )
     upsert_user(conn, ROOMI_USER_ID, ROOMI_NAME, "AI")
     _ensure_demo_rule(conn)
+
+    scenario_people = scenario["stakeholders"]
 
     count = conn.execute(
         "SELECT COUNT(*) AS c FROM stakeholders WHERE thread_id = ?",
@@ -237,17 +480,16 @@ def ensure_demo_room(conn) -> None:
     }
     needs_seed = count == 0 or bool(names & LEGACY_SEED_NAMES)
     if needs_seed:
-        if count:
-            conn.execute(
-                "DELETE FROM stakeholders WHERE thread_id = ?", (DEMO_THREAD_ID,)
-            )
-            conn.execute(
-                "DELETE FROM messages WHERE thread_id = ?", (DEMO_THREAD_ID,)
-            )
-            conn.execute(
-                "DELETE FROM interventions WHERE thread_id = ?", (DEMO_THREAD_ID,)
-            )
-        for person in SEED_STAKEHOLDERS:
+        conn.execute(
+            "DELETE FROM stakeholders WHERE thread_id = ?", (DEMO_THREAD_ID,)
+        )
+        conn.execute(
+            "DELETE FROM messages WHERE thread_id = ?", (DEMO_THREAD_ID,)
+        )
+        conn.execute(
+            "DELETE FROM interventions WHERE thread_id = ?", (DEMO_THREAD_ID,)
+        )
+        for person in scenario_people:
             upsert_stakeholder(
                 conn,
                 DEMO_THREAD_ID,
@@ -255,7 +497,35 @@ def ensure_demo_room(conn) -> None:
                 person["user_name"],
                 person["role"],
                 person["interests"],
-                person["avatar"],
+                person.get("avatar", ""),
+            )
+
+    # 事前構築: 導入時に組織全体のステークホルダーカタログを登録・ベクトル化 (RAG用)
+    profile_count = conn.execute(
+        "SELECT COUNT(*) AS c FROM stakeholder_profiles "
+        "WHERE source = 'demo' AND channel_id = ?",
+        (DEMO_CHANNEL_ID,),
+    ).fetchone()["c"]
+    if profile_count == 0 or needs_seed:
+        from ai_core import DummyLLM
+        llm = DummyLLM()
+        conn.execute(
+            "DELETE FROM stakeholder_profiles WHERE source = 'demo' AND channel_id = ?",
+            (DEMO_CHANNEL_ID,),
+        )
+        for person in scenario_people:
+            text = f"氏名: {person['user_name']} / 役割: {person['role']} / 担当・関心: {person['interests']}"
+            emb = llm.embed(text) if hasattr(llm, "embed") else None
+            upsert_stakeholder_profile(
+                conn,
+                person["user_id"],
+                person["user_name"],
+                person["role"],
+                person["interests"],
+                person.get("avatar", ""),
+                embedding=emb,
+                source="demo",
+                channel_id=DEMO_CHANNEL_ID,
             )
 
 
@@ -318,9 +588,10 @@ def list_audit(conn, limit: int = 20) -> list[dict]:
 def playback_view(conn) -> dict:
     mode = str(_playback["mode"])
     index = int(_playback["index"])
+    msgs = get_current_messages()
     next_speaker = None
-    if mode == "script" and index < len(SCENARIO_MESSAGES):
-        user_id = SCENARIO_MESSAGES[index][0]
+    if mode == "script" and index < len(msgs):
+        user_id = msgs[index][0]
         person = next((p for p in list_stakeholders(conn) if p["user_id"] == user_id), None)
         next_speaker = person["user_name"] if person else user_id
     elif mode == "ai":
@@ -329,7 +600,7 @@ def playback_view(conn) -> dict:
     return {
         "mode": mode,
         "index": index,
-        "total": len(SCENARIO_MESSAGES),
+        "total": len(msgs),
         "ai_count": int(_playback["ai_count"]),
         "interval_sec": PLAY_INTERVAL_SEC,
         "next_speaker": next_speaker,
@@ -338,18 +609,38 @@ def playback_view(conn) -> dict:
     }
 
 
-def room_state(conn, llm_name: str) -> dict:
-    ensure_demo_room(conn)
+def room_state(conn, llm_name: str, scenario_id: str | None = None) -> dict:
+    ensure_demo_room(conn, scenario_id)
+    scenario = get_scenario(scenario_id)
     return {
-        "channel": {"id": DEMO_CHANNEL_ID, "name": DEMO_CHANNEL_NAME},
+        "channel": {"id": DEMO_CHANNEL_ID, "name": scenario.get("channel_name", DEMO_CHANNEL_NAME)},
         "thread_id": DEMO_THREAD_ID,
-        "title": DEMO_TITLE,
+        "title": scenario.get("title", DEMO_TITLE),
+        "description": scenario.get("description", ""),
+        "current_scenario": scenario["id"],
+        "scenarios": [
+            {
+                "id": s["id"],
+                "title": s["title"],
+                "description": s["description"],
+            }
+            for s in SCENARIOS.values()
+        ],
         "llm": llm_name,
         "stakeholders": list_stakeholders(conn),
         "messages": list_messages(conn),
         "audit": list_audit(conn),
         "playback": playback_view(conn),
     }
+
+
+def switch_scenario(conn, scenario_id: str, llm_name: str = "") -> dict:
+    global _current_scenario_id
+    if scenario_id not in SCENARIOS:
+        raise ValueError(f"未知のシナリオ: {scenario_id}")
+    _current_scenario_id = scenario_id
+    reset_room(conn, keep_stakeholders=False)
+    return room_state(conn, llm_name, scenario_id)
 
 
 def _decorate_message(conn, message: dict | None) -> dict | None:
@@ -419,12 +710,15 @@ def post_user_message(
     _playback["last_user_id"] = user_id
     if not from_playback and str(_playback["mode"]) in {"script", "ai"}:
         _playback["mode"] = "stopped"
+    scenario = get_scenario()
+    ch_name = scenario.get("channel_name", DEMO_CHANNEL_NAME)
+    title = scenario.get("title", DEMO_TITLE)
     return {
         "message": _decorate_message(conn, result.message),
         "bot_message": _decorate_message(conn, result.bot_message),
         "intervention": _intervention_payload(result),
-        "channel": {"id": DEMO_CHANNEL_ID, "name": DEMO_CHANNEL_NAME},
-        "title": DEMO_TITLE,
+        "channel": {"id": DEMO_CHANNEL_ID, "name": ch_name},
+        "title": title,
         "thread_id": DEMO_THREAD_ID,
         "messages": list_messages(conn),
         "audit": list_audit(conn),
@@ -439,12 +733,15 @@ def force_intervene(conn, llm) -> dict:
         conn, llm, DEMO_THREAD_ID, DEMO_CHANNEL_ID, force=True
     )
     _humanize_bot_reply(conn, result)
+    scenario = get_scenario()
+    ch_name = scenario.get("channel_name", DEMO_CHANNEL_NAME)
+    title = scenario.get("title", DEMO_TITLE)
     return {
         "message": None,
         "bot_message": _decorate_message(conn, result.bot_message),
         "intervention": _intervention_payload(result),
-        "channel": {"id": DEMO_CHANNEL_ID, "name": DEMO_CHANNEL_NAME},
-        "title": DEMO_TITLE,
+        "channel": {"id": DEMO_CHANNEL_ID, "name": ch_name},
+        "title": title,
         "thread_id": DEMO_THREAD_ID,
         "messages": list_messages(conn),
         "audit": list_audit(conn),
@@ -498,14 +795,18 @@ def reset_room(conn, keep_stakeholders: bool = True) -> None:
         ensure_demo_room(conn)
 
 
-def load_scenario(conn) -> dict:
-    reset_room(conn, keep_stakeholders=True)
-    ensure_demo_room(conn)
-    start = time.time() - 60 * len(SCENARIO_MESSAGES)
+def load_scenario(conn, scenario_id: str | None = None) -> dict:
+    if scenario_id and scenario_id in SCENARIOS:
+        switch_scenario(conn, scenario_id)
+    else:
+        reset_room(conn, keep_stakeholders=True)
+        ensure_demo_room(conn)
+    msgs = get_current_messages()
+    start = time.time() - 60 * len(msgs)
     from gateway import normalize_event
     from store import save_message
 
-    for index, (user_id, text) in enumerate(SCENARIO_MESSAGES):
+    for index, (user_id, text) in enumerate(msgs):
         payload = {
             "type": "message",
             "channel": DEMO_CHANNEL_ID,
@@ -532,7 +833,9 @@ def _humanize_bot_reply(conn, result) -> None:
     text = result.bot_text
     for user_id, name in mapping.items():
         text = text.replace(user_id, name)
-    text = text.replace(DEMO_THREAD_ID, f"#{DEMO_CHANNEL_NAME}")
+    scenario = get_scenario()
+    ch_name = scenario.get("channel_name", DEMO_CHANNEL_NAME)
+    text = text.replace(DEMO_THREAD_ID, f"#{ch_name}")
     conn.execute(
         "UPDATE messages SET text = ? WHERE id = ?",
         (text, result.bot_message["id"]),
@@ -590,17 +893,11 @@ def _next_ai_speaker(conn) -> dict | None:
     return others[0]
 
 
-def _seed_breakfast_people(conn) -> None:
-    conn.execute(
-        "DELETE FROM stakeholders WHERE thread_id = ?", (DEMO_THREAD_ID,)
-    )
-    conn.commit()
-    ensure_demo_room(conn)
-
-
-def start_playback(conn, llm) -> dict:
-    reset_room(conn, keep_stakeholders=False)
-    _seed_breakfast_people(conn)
+def start_playback(conn, llm, scenario_id: str | None = None) -> dict:
+    if scenario_id and scenario_id in SCENARIOS:
+        switch_scenario(conn, scenario_id)
+    else:
+        reset_room(conn, keep_stakeholders=False)
     _playback["mode"] = "script"
     _playback["index"] = 0
     _playback["ai_count"] = 0
@@ -626,10 +923,11 @@ def play_tick(conn, llm) -> dict:
 
 def _tick_script(conn, llm) -> dict:
     index = int(_playback["index"])
-    if index >= len(SCENARIO_MESSAGES):
+    msgs = get_current_messages()
+    if index >= len(msgs):
         _playback["mode"] = "done"
         raise ValueError("実例の発言はここまで")
-    user_id, text = SCENARIO_MESSAGES[index]
+    user_id, text = msgs[index]
     posted = post_user_message(
         conn, llm, user_id, text, persist_bot=True, from_playback=True
     )
@@ -639,7 +937,7 @@ def _tick_script(conn, llm) -> dict:
     if posted["bot_message"]:
         _playback["mode"] = "ai"
         _playback["ai_count"] = 0
-    elif int(_playback["index"]) >= len(SCENARIO_MESSAGES):
+    elif int(_playback["index"]) >= len(msgs):
         forced = force_intervene(conn, llm)
         if forced.get("bot_message"):
             _playback["mode"] = "ai"

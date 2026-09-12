@@ -51,6 +51,18 @@ CREATE TABLE IF NOT EXISTS embeddings (
   embedding TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS stakeholder_profiles (
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  role TEXT DEFAULT '',
+  interests TEXT DEFAULT '',
+  avatar TEXT DEFAULT '',
+  source TEXT NOT NULL DEFAULT 'slack' CHECK (source IN ('slack', 'demo')),
+  channel_id TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (source, channel_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS stakeholders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   thread_id TEXT NOT NULL,
@@ -128,4 +140,3 @@ CREATE TABLE IF NOT EXISTS "verification" (
   "createdAt" date not null,
   "updatedAt" date not null
 );
-

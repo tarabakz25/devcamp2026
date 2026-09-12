@@ -47,19 +47,23 @@ class TestBotStore(unittest.TestCase):
              "text": "仕様どうする?", "ts": "1"},
             {"type": "message", "channel": "C1", "user": "U2",
              "text": "なぜ止まってるんだっけ?", "ts": "2", "thread_ts": "1"},
+            {"type": "message", "channel": "C1", "user": "U3",
+             "text": "担当は誰?", "ts": "3", "thread_ts": "1"},
+            {"type": "message", "channel": "C1", "user": "U1",
+             "text": "決め方はどうする?", "ts": "4", "thread_ts": "1"},
         ]:
             m = normalize_event(ev)
             assert m is not None
             q.put(m)
             save_message(conn, m)
-        self.assertEqual(len(q), 2)
+        self.assertEqual(len(q), 4)
         rows = thread_messages(conn, "C1-1")
-        self.assertEqual(len(rows), 2)
+        self.assertEqual(len(rows), 4)
         ctx = build_context([dict(r) for r in rows], "C1-1", "C1")
-        self.assertEqual(ctx.questions_open, 2)
+        self.assertEqual(ctx.questions_open, 4)
         result = judge_intervention(ctx, llm)
         d = decide(rules, "C1", "C1-1", result, now=1000.0)
-        # dummy LLM: q=2なので conf=0.7, impact=0.7 -> しきい値以上で介入
+        # 4発言がそろった後にだけ、未解決質問として介入する
         self.assertTrue(d.should_act)
         self.assertEqual(d.action, "reply")
 
