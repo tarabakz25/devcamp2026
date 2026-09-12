@@ -89,6 +89,13 @@ function formatTs(ts: string): string {
   return ts;
 }
 
+function formatTypingText(names: string[]): string {
+  const uniqueNames = Array.from(new Set(names.map((n) => n.trim()).filter(Boolean)));
+  if (uniqueNames.length === 0) return "";
+  if (uniqueNames.length === 1) return `${uniqueNames[0]} が入力中...`;
+  return `${uniqueNames.join("、")} が入力中...`;
+}
+
 async function readApi(path: string, init?: RequestInit) {
   const response = await fetch(path, {
     ...init,
@@ -116,11 +123,26 @@ export default function SlackDemoChat() {
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("");
   const [newInterests, setNewInterests] = useState("");
-  const [thinkingName, setThinkingName] = useState("Roomi");
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const playTimer = useRef<number | null>(null);
+  const typingTimer = useRef<number | null>(null);
   const playingRef = useRef(false);
+
+  function addTypingUser(name: string) {
+    if (!name) return;
+    setTypingUsers((current) => (current.includes(name) ? current : [...current, name]));
+  }
+
+  function setTypingOnly(...names: string[]) {
+    const valid = Array.from(new Set(names.map((n) => n.trim()).filter(Boolean)));
+    setTypingUsers(valid);
+  }
+
+  function clearTyping() {
+    setTypingUsers([]);
+  }
 
   const speaker = useMemo(
     () => room?.stakeholders.find((person) => person.user_id === speakerId) || room?.stakeholders[0],
@@ -156,12 +178,12 @@ export default function SlackDemoChat() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [room?.messages.length, thinking]);
+  }, [room?.messages.length, typingUsers.length, thinking]);
 
   useEffect(() => {
     return () => {
       playingRef.current = false;
-      if (playTimer.current) window.clearTimeout(playTimer.current);
+      clearAllTimers();
     };
   }, []);
 
@@ -170,6 +192,18 @@ export default function SlackDemoChat() {
       window.clearTimeout(playTimer.current);
       playTimer.current = null;
     }
+  }
+
+  function clearTypingTimer() {
+    if (typingTimer.current) {
+      window.clearTimeout(typingTimer.current);
+      typingTimer.current = null;
+    }
+  }
+
+  function clearAllTimers() {
+    clearPlayTimer();
+    clearTypingTimer();
   }
 
   function applyRoomPatch(data: {
@@ -196,15 +230,31 @@ export default function SlackDemoChat() {
   }
 
   function schedulePlayTick(playback?: Playback) {
-    clearPlayTimer();
+    clearAllTimers();
     const mode = playback?.mode;
     if (!playingRef.current || (mode !== "script" && mode !== "ai")) {
       playingRef.current = false;
+      clearTyping();
       return;
     }
     const defaultWait = mode === "ai" ? 3 : 10;
-    const wait = Math.max(1, playback?.interval_sec || defaultWait) * 1000;
-    const nextName = playback.next_speaker || (mode === "ai" ? "関係者" : "次の人");
+    const waitSec = Math.max(1, playback?.interval_sec || defaultWait);
+    const wait = waitSec * 1000;
+    const nextName = playback?.next_speaker || (mode === "ai" ? "関係者" : "次の人");
+
+    // 発言の少し前に入力中を表示して自然なチャットの流れを作る
+    const typingLeadTime = Math.min(4000, Math.max(1500, Math.floor(wait / 2)));
+    const typingDelay = Math.max(0, wait - typingLeadTime);
+
+    typingTimer.current = window.setTimeout(() => {
+      if (!playingRef.current) return;
+      if (mode === "ai") {
+        setTypingOnly(nextName, "Roomi");
+      } else {
+        setTypingOnly(nextName);
+      }
+    }, typingDelay);
+
     playTimer.current = window.setTimeout(() => {
       void tickPlay(nextName);
     }, wait);
@@ -226,22 +276,49 @@ export default function SlackDemoChat() {
     setSending(true);
     setThinking(true);
     setDraft("");
+
+    // 送信者の発言を即時反映
+    const tempUserMsg: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      user_id: speaker.user_id,
+      user_name: speaker.user_name,
+      role: speaker.role || "",
+      avatar: speaker.avatar || "",
+      text,
+      ts: String(Date.now() / 1000),
+      is_bot: false,
+    };
+    setRoom((current) =>
+      current ? { ...current, messages: [...current.messages, tempUserMsg] } : current
+    );
+
+    // Roomi が思考・入力中であることを表示
+    setTypingOnly("Roomi");
+
     try {
       const data = await readApi("/api/demo/messages", {
         method: "POST",
         body: JSON.stringify({ user_id: speaker.user_id, text }),
       });
+
+      // Roomi の介入メッセージがある場合、自然なタイピング表示時間を確保
+      if (data.bot_message) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      }
+
       applyRoomPatch(data);
       setBanner({
-        kind: data.intervention.should_act ? "ai" : "info",
+        kind: data.intervention?.should_act ? "ai" : "info",
         text: describeIntervention(data.intervention),
       });
     } catch (err: any) {
       setDraft(text);
       setBanner({ kind: "error", text: err.message });
+      await refresh().catch(() => {});
     } finally {
       setSending(false);
       setThinking(false);
+      clearTyping();
       inputRef.current?.focus();
     }
   }
@@ -249,17 +326,22 @@ export default function SlackDemoChat() {
   async function intervene() {
     if (thinking) return;
     setThinking(true);
+    setTypingOnly("Roomi");
     try {
       const data = await readApi("/api/demo/intervene", { method: "POST" });
+      if (data.bot_message) {
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      }
       applyRoomPatch(data);
       setBanner({
-        kind: data.intervention.should_act ? "ai" : "info",
+        kind: data.intervention?.should_act ? "ai" : "info",
         text: describeIntervention(data.intervention),
       });
     } catch (err: any) {
       setBanner({ kind: "error", text: err.message });
     } finally {
       setThinking(false);
+      clearTyping();
     }
   }
 
@@ -291,9 +373,9 @@ export default function SlackDemoChat() {
 
   async function switchScenario(scenarioId: string) {
     if (thinking || playingRef.current) return;
-    clearPlayTimer();
+    clearAllTimers();
+    clearTyping();
     setThinking(true);
-    setThinkingName("切替中");
     try {
       const data = (await readApi("/api/demo/scenario", {
         method: "POST",
@@ -313,10 +395,10 @@ export default function SlackDemoChat() {
   }
 
   async function startPlay() {
-    clearPlayTimer();
+    clearAllTimers();
+    clearTyping();
     playingRef.current = true;
     setThinking(true);
-    setThinkingName("実例");
     try {
       const data = await readApi("/api/demo/play/start", {
         method: "POST",
@@ -351,6 +433,7 @@ export default function SlackDemoChat() {
       schedulePlayTick(data.playback);
     } catch (err: any) {
       playingRef.current = false;
+      clearTyping();
       setBanner({ kind: "error", text: err.message });
     } finally {
       setThinking(false);
@@ -359,15 +442,45 @@ export default function SlackDemoChat() {
 
   async function tickPlay(speakerName: string) {
     if (!playingRef.current) return;
+    clearTypingTimer();
     setThinking(true);
-    setThinkingName(speakerName);
+    addTypingUser(speakerName);
+
     try {
       const data = await readApi("/api/demo/play/tick", { method: "POST" });
-      applyRoomPatch(data);
+      if (!playingRef.current) return;
+
+      // Roomi の介入メッセージがある場合は、まず発言者のメッセージを表示し、
+      // 続けて「Roomi が入力中...」を表示してから Roomi のメッセージを表示する
+      if (data.bot_message) {
+        const botId = data.bot_message.id;
+        const messagesWithoutBot = (data.messages || []).filter(
+          (m: ChatMessage) => m.id !== botId
+        );
+        applyRoomPatch({ ...data, messages: messagesWithoutBot });
+
+        const nextSpeaker = data.playback?.next_speaker;
+        if (nextSpeaker && data.playback?.mode === "ai") {
+          setTypingOnly("Roomi", nextSpeaker);
+        } else {
+          setTypingOnly("Roomi");
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        if (!playingRef.current) return;
+
+        applyRoomPatch(data);
+        clearTyping();
+      } else {
+        applyRoomPatch(data);
+        clearTyping();
+      }
+
       setBanner({
         kind: data.intervention?.should_act || data.playback?.mode === "ai" ? "ai" : "info",
         text: describePlayback(data.playback, data.intervention),
       });
+
       const shouldContinue =
         data.playback?.mode === "script" ||
         (data.playback?.mode === "ai" && !data.intervention?.should_act && !data.bot_message);
@@ -375,11 +488,13 @@ export default function SlackDemoChat() {
         schedulePlayTick(data.playback);
       } else {
         playingRef.current = false;
-        clearPlayTimer();
+        clearAllTimers();
+        clearTyping();
       }
     } catch (err: any) {
       playingRef.current = false;
-      clearPlayTimer();
+      clearAllTimers();
+      clearTyping();
       setBanner({ kind: "error", text: err.message });
     } finally {
       setThinking(false);
@@ -388,7 +503,8 @@ export default function SlackDemoChat() {
 
   async function stopPlay() {
     playingRef.current = false;
-    clearPlayTimer();
+    clearAllTimers();
+    clearTyping();
     try {
       const data = await readApi("/api/demo/play/stop", { method: "POST" });
       applyRoomPatch(data);
@@ -406,7 +522,8 @@ export default function SlackDemoChat() {
         body: JSON.stringify({ keep_stakeholders: true }),
       })) as RoomState;
       playingRef.current = false;
-      clearPlayTimer();
+      clearAllTimers();
+      clearTyping();
       setRoom(data);
       setBanner({ kind: "info", text: "会話をリセットしたよ。" });
     } catch (err: any) {
@@ -662,14 +779,14 @@ export default function SlackDemoChat() {
                 </article>
               );
             })}
-            {thinking && (
+            {typingUsers.length > 0 && (
               <div className="slack-demo-typing">
                 <span className="slack-demo-typing-dots" aria-hidden="true">
                   <i />
                   <i />
                   <i />
                 </span>
-                {thinkingName} が入力中...
+                {formatTypingText(typingUsers)}
               </div>
             )}
             <div ref={bottomRef} />
