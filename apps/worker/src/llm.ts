@@ -306,8 +306,10 @@ function fallbackAgreement(messages: AgreementMessage[], candidates: AgreementCa
     : null;
   const explicitOwners = candidates.filter((person) => /責任者|決裁|最終判断/.test(person.role || ""));
   const owner = ownerFromConversation || explicitOwners[0] || null;
-  const staffRepresentative = candidates.find((person) => /寮|運営|スタッフ/.test(person.role || ""));
-  const studentRepresentative = candidates.find((person) => /学生/.test(person.role || "") && /代表|整理|調整/.test(person.interests || "")) ||
+  const staffRepresentative = candidates.find((person) => /スタッフ/.test(person.role || "") && !/学生/.test(person.role || "")) ||
+    candidates.find((person) => /寮|運営|スタッフ/.test(person.role || ""));
+  const studentRepresentative = candidates.find((person) => /寮運営|学生自治/.test(person.role || "")) ||
+    candidates.find((person) => /学生/.test(person.role || "") && /代表|整理|調整/.test(person.interests || "")) ||
     candidates.find((person) => /学生/.test(person.role || ""));
   const requiredIds = new Set([staffRepresentative?.user_id, studentRepresentative?.user_id].filter((id): id is string => Boolean(id)));
   const participants = candidates.slice(0, 30).map((person) => {
