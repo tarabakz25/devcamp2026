@@ -1,11 +1,9 @@
-// Cloudflare移行後: WORKER_URL (roomi-worker) を優先。未設定なら従来の
-// Python Dashboard (DASHBOARD_URL / localhost:8000) にフォールバックする。
-const DASH = process.env.WORKER_URL ?? process.env.DASHBOARD_URL ?? "http://localhost:8000";
+import { fetchBackend } from "@/lib/backend";
 
 async function proxy(req: Request, path: string[] = []) {
   const suffix = path.length ? `/${path.join("/")}` : "";
   const incoming = new URL(req.url);
-  const url = `${DASH}/api/demo${suffix}${incoming.search}`;
+  const pathWithQuery = `/api/demo${suffix}${incoming.search}`;
   const init: RequestInit = {
     method: req.method,
     cache: "no-store",
@@ -15,7 +13,7 @@ async function proxy(req: Request, path: string[] = []) {
     init.body = await req.text();
   }
   try {
-    const response = await fetch(url, init);
+    const response = await fetchBackend(pathWithQuery, init);
     const text = await response.text();
     return new Response(text, {
       status: response.status,
@@ -26,8 +24,8 @@ async function proxy(req: Request, path: string[] = []) {
   } catch {
     return Response.json(
       {
-        error: "dashboard_unavailable",
-        hint: "task dash で Dashboard API を起動してね",
+        error: "backend_unavailable",
+        hint: "Cloudflare Worker または Dashboard API の接続を確認してね",
       },
       { status: 503 }
     );

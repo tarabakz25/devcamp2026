@@ -5,7 +5,7 @@ import {
   controlCenterUserAllowed,
 } from "@/lib/control-center-access";
 
-const DASH = process.env.WORKER_URL ?? process.env.DASHBOARD_URL ?? "http://localhost:8000";
+import { fetchBackend } from "@/lib/backend";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -378,7 +378,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
   try {
     const threadId = encodeURIComponent(params.id);
-    const response = await fetch(`${DASH}/api/threads/${threadId}/agreements`, {
+    const response = await fetchBackend(`/api/threads/${threadId}/agreements`, {
       cache: "no-store",
       headers: process.env.AGREEMENT_API_TOKEN
         ? { authorization: `Bearer ${process.env.AGREEMENT_API_TOKEN}` }

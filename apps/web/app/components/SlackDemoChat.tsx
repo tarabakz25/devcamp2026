@@ -145,7 +145,7 @@ export default function SlackDemoChat() {
         if (err.status === 503) {
           setBanner({
             kind: "error",
-            text: "Dashboard API が起動していないよ。別ターミナルで `task dash` を実行してから再読み込みして。",
+            text: "バックエンド API に接続できないよ。Cloudflare Worker または `task dash` の稼働状況を確認してね。",
           });
         } else {
           setBanner({ kind: "error", text: err.message });
