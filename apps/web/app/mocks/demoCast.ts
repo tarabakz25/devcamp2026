@@ -25,14 +25,14 @@ export const DEMO_CAST: DemoCastMember[] = [
     user_id: "U-SAKUMA",
     demo_name: "中村蓮",
     real_name: "佐久間康輔",
-    role: "学生",
+    role: "寮運営学生",
     stance: "A棟1階を続けたい。朝の準備と片付けが一番楽",
   },
   {
     user_id: "U-OZAKI",
     demo_name: "林みお",
     real_name: "尾崎仁瑚",
-    role: "学生",
+    role: "寮運営学生",
     stance: "両方の論点を整理して会場を決めたい",
   },
   {
@@ -67,16 +67,16 @@ export const DEMO_CAST: DemoCastMember[] = [
     user_id: "U-MERRITT",
     demo_name: "森田カイ",
     real_name: "メリットキア",
-    role: "学生",
+    role: "寮運営学生",
     stance: "決まりを全体に共有する。決まらなければ一旦現状維持",
   },
   {
     user_id: "U-KIZUKI",
     demo_name: "藤井湊",
     real_name: "相木絆煌",
-    role: "学生",
+    role: "寮運営学生",
     stance: "学生は1階継続、スタッフは2階、という食い違いを言語化したい",
   },
 ];
 
-export const DEMO_CAST_ROLE_ORDER = ["寮スタッフ", "学生", "パートナー連携", "モノラボ"];
+export const DEMO_CAST_ROLE_ORDER = ["寮スタッフ", "寮運営学生", "学生", "パートナー連携", "モノラボ"];

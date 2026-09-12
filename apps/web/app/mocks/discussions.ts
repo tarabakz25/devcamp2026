@@ -91,9 +91,9 @@ export const DISCUSSIONS: Discussion[] = [
     aiInterventions: 1,
     graph: {
       nodes: [
-        personNode("U-SUGIURA", 2),
-        personNode("U-MATSUI", 2),
-        personNode("U-OZAKI", 1),
+        personNode("U-SUGIURA", 2, { required: true, stance: "conditional" }),
+        personNode("U-MATSUI", 2, { required: true, stance: "conditional" }),
+        personNode("U-OZAKI", 1, { required: false, stance: "agreed" }),
         { ...ROOMI_NODE, messages: 1 },
       ],
       edges: [
@@ -163,10 +163,10 @@ export const DISCUSSIONS: Discussion[] = [
     aiInterventions: 0,
     graph: {
       nodes: [
-        personNode("U-SASAKI", 2),
-        personNode("U-MERRITT", 1),
-        personNode("U-KIZUKI", 1),
-        personNode("U-YAMAJI", 1),
+        personNode("U-SASAKI", 2, { required: true, stance: "opposed" }),
+        personNode("U-MERRITT", 1, { required: true, stance: "opposed" }),
+        personNode("U-KIZUKI", 1, { required: false, stance: "conditional" }),
+        personNode("U-YAMAJI", 1, { required: false, stance: "conditional" }),
       ],
       edges: [
         {
@@ -235,10 +235,10 @@ export const DISCUSSIONS: Discussion[] = [
     aiInterventions: 0,
     graph: {
       nodes: [
-        personNode("U-SAKUMA", 1),
-        personNode("U-SUGIURA", 1),
-        personNode("U-MATSUI", 1),
-        personNode("U-OZAKI", 1),
+        personNode("U-SAKUMA", 1, { required: true, stance: "agreed" }),
+        personNode("U-SUGIURA", 1, { required: true, stance: "agreed" }),
+        personNode("U-MATSUI", 1, { required: false, stance: "agreed" }),
+        personNode("U-OZAKI", 1, { required: false, stance: "agreed" }),
       ],
       edges: [
         {

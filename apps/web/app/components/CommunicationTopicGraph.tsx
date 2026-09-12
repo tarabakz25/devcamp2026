@@ -3,6 +3,38 @@
 import * as d3 from "d3";
 import { useEffect, useId, useRef, useState } from "react";
 
+export type AgreementStance =
+  | "agreed"
+  | "conditional"
+  | "opposed"
+  | "unconfirmed";
+
+export const AGREEMENT_STANCE_META: Record<
+  AgreementStance,
+  { label: string; color: string; glow: string }
+> = {
+  agreed: {
+    label: "合意済み",
+    color: "#6ed8c3",
+    glow: "rgba(110, 216, 195, 0.8)",
+  },
+  conditional: {
+    label: "条件付き",
+    color: "#f3b65f",
+    glow: "rgba(243, 182, 95, 0.8)",
+  },
+  opposed: {
+    label: "懸念あり",
+    color: "#ff8f7a",
+    glow: "rgba(255, 143, 122, 0.85)",
+  },
+  unconfirmed: {
+    label: "未確認",
+    color: "#8f9aff",
+    glow: "rgba(143, 154, 255, 0.6)",
+  },
+};
+
 export type CommunicationNode = {
   id: string;
   name?: string;
@@ -11,6 +43,8 @@ export type CommunicationNode = {
   messages: number;
   avatar?: string;
   kind?: "person" | "agent";
+  required?: boolean;
+  stance?: AgreementStance;
 };
 
 export type RelationshipStatus =
@@ -53,6 +87,8 @@ export type GraphSelection = {
   role?: string;
   interests?: string;
   avatar?: string;
+  required?: boolean;
+  stance?: AgreementStance;
 };
 
 type SimulationNode = d3.SimulationNodeDatum &
@@ -424,14 +460,27 @@ export default function CommunicationTopicGraph({
       .selectAll<SVGGElement, SimulationNode>("g")
       .data(nodes)
       .join("g")
-      .attr("class", (item) => `topic-graph-node ${item.kind}`)
+      .attr("class", (item) => {
+        const classes = ["topic-graph-node", item.kind];
+        if (item.required) classes.push("is-required");
+        if (item.stance) classes.push(`stance-${item.stance}`);
+        return classes.join(" ");
+      })
       .attr("tabindex", 0)
       .attr("role", "button")
-      .attr(
-        "aria-label",
-        (item) =>
-          `${item.kind === "topic" ? "トピック" : item.kind === "agent" ? "エージェント" : "参加者"} ${item.label}、${item.messages}件`
-      )
+      .attr("aria-label", (item) => {
+        const typeLabel =
+          item.kind === "topic"
+            ? "トピック"
+            : item.kind === "agent"
+              ? "エージェント"
+              : "参加者";
+        const requiredText = item.required ? "（合意形成必須）" : "";
+        const stanceText = item.stance
+          ? `、合意状況：${AGREEMENT_STANCE_META[item.stance]?.label || item.stance}`
+          : "";
+        return `${typeLabel} ${item.label}、${item.messages}件${requiredText}${stanceText}`;
+      })
       .on("click", (event: MouseEvent, item: SimulationNode) => {
         event.stopPropagation();
         selectNode(item, event.currentTarget as SVGGElement);
@@ -491,14 +540,21 @@ export default function CommunicationTopicGraph({
         role: item.role,
         interests: item.interests,
         avatar: item.avatar,
+        required: item.required,
+        stance: item.stance,
       });
     }
 
-    // ノードの背景円
+    // ノードの背景円（ドロップシャドウの対象）
     node
       .append("circle")
       .attr("r", nodeRadius)
-      .attr("class", (item) => `topic-graph-circle ${item.kind}`);
+      .attr("class", (item) => {
+        const classes = ["topic-graph-circle", item.kind];
+        if (item.required) classes.push("is-required");
+        if (item.stance) classes.push(`stance-${item.stance}`);
+        return classes.join(" ");
+      });
 
     // ノードのアバター画像（番号ではなくログインアイコン）
     node
@@ -514,6 +570,27 @@ export default function CommunicationTopicGraph({
       .attr("height", (d) => nodeRadius(d) * 2)
       .attr("preserveAspectRatio", "xMidYMid slice")
       .attr("href", (d) => nodeAvatar(d));
+
+    // 必須関係者（合意形成が必要な人）の右上インジケーターバッジ
+    const requiredBadge = node
+      .filter((d) => Boolean(d.required && d.kind === "person"))
+      .append("g")
+      .attr("class", "topic-graph-required-badge")
+      .attr("transform", (d) => {
+        const r = nodeRadius(d);
+        const offset = r * 0.707;
+        return `translate(${offset}, ${-offset})`;
+      });
+
+    requiredBadge
+      .append("circle")
+      .attr("class", "required-badge-bg")
+      .attr("r", 6);
+
+    requiredBadge
+      .append("circle")
+      .attr("class", (d) => `required-badge-dot ${d.stance ? `stance-${d.stance}` : ""}`)
+      .attr("r", 3.5);
 
     // ユーザー名 / トピック名ラベル
     node
@@ -767,13 +844,43 @@ export default function CommunicationTopicGraph({
                     : "参加者"}
               </span>
               <h4 className="roomi-popup-name">{popup.item.label}</h4>
-              {popup.item.role && (
-                <span className="roomi-popup-role-pill">{popup.item.role}</span>
-              )}
+              <div className="roomi-popup-badge-row">
+                {popup.item.role && (
+                  <span className="roomi-popup-role-pill">{popup.item.role}</span>
+                )}
+                {popup.item.required && (
+                  <span className="roomi-popup-required-pill">合意必須</span>
+                )}
+              </div>
             </div>
           </div>
 
           <div className="roomi-popup-body">
+            {popup.item.kind === "person" && (popup.item.stance || popup.item.required) && (
+              <div className="roomi-popup-detail-row">
+                <span className="roomi-popup-meta-label">合意形成</span>
+                <div className="roomi-popup-stance-wrap">
+                  {popup.item.stance ? (
+                    <span className={`roomi-popup-stance-pill stance-${popup.item.stance}`}>
+                      <i
+                        className="status-indicator"
+                        style={{
+                          backgroundColor:
+                            AGREEMENT_STANCE_META[popup.item.stance]?.color || "#8f9aff",
+                        }}
+                      />
+                      {AGREEMENT_STANCE_META[popup.item.stance]?.label || popup.item.stance}
+                    </span>
+                  ) : (
+                    <span className="roomi-popup-stance-pill stance-unconfirmed">
+                      <i className="status-indicator" style={{ backgroundColor: "#8f9aff" }} />
+                      未確認
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="roomi-popup-stat-row">
               <span className="roomi-popup-meta-label">発言数</span>
               <span className="roomi-popup-meta-value">

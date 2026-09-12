@@ -33,11 +33,24 @@ def stakeholder_graph(conn: sqlite3.Connection, thread_id: str) -> dict:
         (thread_id,),
     )
     users = {r["id"]: dict(r) for r in user_rows.fetchall()}
+
+    participant_map = {}
+    try:
+        agreements = thread_agreements(conn, thread_id)
+        for dec in agreements.get("decisions", []):
+            for part in dec.get("participants", []):
+                uid = part.get("userId")
+                if uid and uid not in participant_map:
+                    participant_map[uid] = part
+    except Exception:
+        pass
+
     nodes = []
     for user_id, message_count in counts.items():
         holder = stakeholders.get(user_id, {})
         user = users.get(user_id, {})
         is_agent = user_id == ROOMI_USER_ID
+        part_info = participant_map.get(user_id, {})
         nodes.append({
             "id": user_id,
             "name": (
@@ -55,6 +68,8 @@ def stakeholder_graph(conn: sqlite3.Connection, thread_id: str) -> dict:
             ),
             "messages": message_count,
             "kind": "agent" if is_agent else "person",
+            "required": bool(part_info.get("required", False)) if not is_agent else False,
+            "stance": part_info.get("stance") if not is_agent and part_info.get("stance") else None,
         })
 
     # 明示的な関係に加えて、連続する発言者を会話リンクとして集計する。

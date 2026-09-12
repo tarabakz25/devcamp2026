@@ -56,14 +56,14 @@ export const COMMUNICATION_DEMO: CommunicationDemo = {
   title: "朝食会場を決めよう",
   graph: {
     nodes: [
-      personNode("U-SASAKI", 2),
-      personNode("U-OGASAHARA", 2),
-      personNode("U-SAKUMA", 1),
-      personNode("U-OZAKI", 2),
-      personNode("U-KUWAHARA", 2),
-      personNode("U-YAMAJI", 1),
-      personNode("U-SUGIURA", 1),
-      personNode("U-KIZUKI", 1),
+      personNode("U-SASAKI", 2, { required: true, stance: "opposed" }),
+      personNode("U-OGASAHARA", 2, { required: true, stance: "opposed" }),
+      personNode("U-SAKUMA", 1, { required: true, stance: "conditional" }),
+      personNode("U-OZAKI", 2, { required: true, stance: "agreed" }),
+      personNode("U-KUWAHARA", 2, { required: false, stance: "unconfirmed" }),
+      personNode("U-YAMAJI", 1, { required: false, stance: "conditional" }),
+      personNode("U-SUGIURA", 1, { required: false, stance: "opposed" }),
+      personNode("U-KIZUKI", 1, { required: false, stance: "agreed" }),
       {
         id: "U-ROOMI",
         name: "Roomi",

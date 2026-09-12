@@ -4,9 +4,11 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import CommunicationTopicGraph, {
+  AGREEMENT_STANCE_META,
   RELATIONSHIP_STATUS_META,
 } from "../components/CommunicationTopicGraph";
 import type {
+  AgreementStance,
   GraphSelection,
 } from "../components/CommunicationTopicGraph";
 import MaterialIcon from "../components/MaterialIcon";
@@ -162,6 +164,16 @@ function GraphHome() {
             {meta.label}
           </span>
         ))}
+        <span className="roomi-legend-divider" aria-hidden="true" />
+        <span className="roomi-legend-group-title">合意形成（必須者）：</span>
+        {(Object.entries(AGREEMENT_STANCE_META) as [AgreementStance, { label: string }][]).map(
+          ([stance, meta]) => (
+            <span key={stance}>
+              <i className={`stance-glow stance-${stance}`} aria-hidden="true" />
+              {meta.label}
+            </span>
+          )
+        )}
       </div>
     </section>
   );

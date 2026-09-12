@@ -17,6 +17,7 @@ export type WorkspaceMember = {
 
 const LOCATION_BY_ROLE: Record<string, string> = {
   寮スタッフ: "スタッフ棟",
+  寮運営学生: "学生寮",
   学生: "学生寮",
   パートナー連携: "本部",
   モノラボ: "モノラボ",
