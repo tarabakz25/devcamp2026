@@ -68,7 +68,9 @@ tasks:
       - '{{.VENV}} apps/bot/src/backfill.py --channel "$STAKEHOLDER_CHANNEL" --limit "$STAKEHOLDER_LIMIT"'
 
   test:
-    desc: ai-coreとbotの全テストを実行する
+    desc: ai-core、bot、Workerのテストと型検査を実行する
     cmds:
       - "{{.VENV}} -m unittest discover -s apps/ai-core/tests"
       - "{{.VENV}} -m unittest discover -s apps/bot/tests"
+      - npm --prefix apps/worker test
+      - npm --prefix apps/worker run typecheck
