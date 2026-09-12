@@ -44,6 +44,53 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
             "ALTER TABLE stakeholders ADD COLUMN avatar TEXT DEFAULT ''"
         )
         conn.commit()
+    profile_cols = {
+        row[1] for row in conn.execute("PRAGMA table_info(stakeholder_profiles)")
+    }
+    if "source" not in profile_cols:
+        conn.execute(
+            "ALTER TABLE stakeholder_profiles "
+            "ADD COLUMN source TEXT NOT NULL DEFAULT 'slack'"
+        )
+        # Demo IDs use U-...; real Slack user IDs do not contain a hyphen.
+        conn.execute(
+            "UPDATE stakeholder_profiles SET source = 'demo' "
+            "WHERE user_id LIKE 'U-%'"
+        )
+        conn.commit()
+    if "channel_id" not in profile_cols:
+        conn.execute(
+            "ALTER TABLE stakeholder_profiles "
+            "ADD COLUMN channel_id TEXT NOT NULL DEFAULT ''"
+        )
+        conn.execute(
+            "UPDATE stakeholder_profiles SET channel_id = 'demo' "
+            "WHERE source = 'demo'"
+        )
+        conn.commit()
+    profile_pk = [
+        row[1]
+        for row in sorted(
+            conn.execute("PRAGMA table_info(stakeholder_profiles)"),
+            key=lambda row: row[5],
+        )
+        if row[5]
+    ]
+    if profile_pk != ["source", "channel_id", "user_id"]:
+        conn.executescript(
+            "CREATE TABLE stakeholder_profiles_scoped ("
+            "user_id TEXT NOT NULL, name TEXT NOT NULL, role TEXT DEFAULT '', "
+            "interests TEXT DEFAULT '', avatar TEXT DEFAULT '', "
+            "source TEXT NOT NULL DEFAULT 'slack' CHECK (source IN ('slack','demo')), "
+            "channel_id TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL, "
+            "PRIMARY KEY (source, channel_id, user_id));"
+            "INSERT OR REPLACE INTO stakeholder_profiles_scoped "
+            "(user_id,name,role,interests,avatar,source,channel_id,updated_at) "
+            "SELECT user_id,name,role,interests,avatar,source,channel_id,updated_at "
+            "FROM stakeholder_profiles;"
+            "DROP TABLE stakeholder_profiles;"
+            "ALTER TABLE stakeholder_profiles_scoped RENAME TO stakeholder_profiles;"
+        )
 
 
 def upsert_user(
@@ -131,40 +178,80 @@ def upsert_stakeholder_profile(
     interests: str = "",
     avatar: str = "",
     embedding: list[float] | None = None,
+    source: str = "slack",
+    channel_id: str = "",
 ) -> None:
+    if source not in {"slack", "demo"}:
+        raise ValueError("stakeholder profile source must be slack or demo")
     now = str(time.time())
     conn.execute(
-        "INSERT INTO stakeholder_profiles (user_id, name, role, interests, avatar, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?) "
-        "ON CONFLICT(user_id) DO UPDATE SET "
+        "INSERT INTO stakeholder_profiles "
+        "(user_id, name, role, interests, avatar, source, channel_id, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(source, channel_id, user_id) DO UPDATE SET "
         "name=excluded.name, "
         "role=CASE WHEN excluded.role != '' THEN excluded.role ELSE stakeholder_profiles.role END, "
         "interests=CASE WHEN excluded.interests != '' THEN excluded.interests ELSE stakeholder_profiles.interests END, "
         "avatar=CASE WHEN excluded.avatar != '' THEN excluded.avatar ELSE stakeholder_profiles.avatar END, "
+        "source=excluded.source, "
+        "channel_id=excluded.channel_id, "
         "updated_at=excluded.updated_at",
-        (user_id, name, role, interests, avatar, now),
+        (user_id, name, role, interests, avatar, source, channel_id, now),
     )
     upsert_user(conn, user_id, name, role)
     if embedding is not None:
-        save_embedding(conn, "stakeholder", user_id, embedding)
+        save_embedding(
+            conn,
+            "stakeholder",
+            f"{source}:{channel_id}:{user_id}",
+            embedding,
+        )
     conn.commit()
 
 
-def get_stakeholder_profiles(conn: sqlite3.Connection) -> list[dict]:
+def get_stakeholder_profiles(
+    conn: sqlite3.Connection,
+    source: str | None = None,
+    channel_id: str | None = None,
+) -> list[dict]:
+    query = (
+        "SELECT user_id, name, role, interests, avatar, source, channel_id, updated_at "
+        "FROM stakeholder_profiles"
+    )
+    filters: list[str] = []
+    params: list[str] = []
+    if source:
+        filters.append("source = ?")
+        params.append(source)
+    if channel_id:
+        filters.append("channel_id = ?")
+        params.append(channel_id)
     rows = conn.execute(
-        "SELECT user_id, name, role, interests, avatar, updated_at FROM stakeholder_profiles"
+        query + (f" WHERE {' AND '.join(filters)}" if filters else ""),
+        params,
     ).fetchall()
     return [dict(r) for r in rows]
 
 
-def load_stakeholder_catalog(conn: sqlite3.Connection, llm=None) -> list:
+def load_stakeholder_catalog(
+    conn: sqlite3.Connection,
+    llm=None,
+    *,
+    source: str | None = None,
+    channel_id: str | None = None,
+) -> list:
     from ai_core import StakeholderProfile
 
-    profiles = get_stakeholder_profiles(conn)
+    profiles = get_stakeholder_profiles(
+        conn,
+        source=source,
+        channel_id=channel_id,
+    )
     catalog: list[StakeholderProfile] = []
     for p in profiles:
         uid = p["user_id"]
-        emb = get_embedding(conn, "stakeholder", uid)
+        embedding_ref = f"{p['source']}:{p['channel_id']}:{uid}"
+        emb = get_embedding(conn, "stakeholder", embedding_ref)
         profile = StakeholderProfile(
             user_id=uid,
             name=p["name"],
@@ -175,7 +262,7 @@ def load_stakeholder_catalog(conn: sqlite3.Connection, llm=None) -> list:
         )
         if profile.embedding is None and llm and hasattr(llm, "embed"):
             profile.embedding = llm.embed(profile.profile_text)
-            save_embedding(conn, "stakeholder", uid, profile.embedding)
+            save_embedding(conn, "stakeholder", embedding_ref, profile.embedding)
         catalog.append(profile)
     return catalog
 

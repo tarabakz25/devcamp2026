@@ -116,56 +116,112 @@ class DummyLLM:
             picks = named[:2]
         mentions = " ".join(f"@{p['name']}" for p in picks)
         text = history or ""
+        clauses = [clause.strip() for clause in re.split(r"[。\n、]", text)]
+        provisional_markers = ("候補", "仮", "暫定", "検討", "調整中", "提案", "案", "予定")
+
+        rule_claims: set[str] = set()
+        for clause in clauses:
+            if any(marker in clause for marker in provisional_markers):
+                continue
+            statement = re.search(
+                r"(?:適用規則|適用ルール)は規約第\d+条(?:で|です)?$"
+                r"|規約第\d+条を適用します$",
+                clause,
+            )
+            if statement:
+                article = re.search(r"規約第(\d+)条", statement.group(0))
+                if article:
+                    rule_claims.add(article.group(1))
+        rule_known = len(rule_claims) == 1
+
+        owner_phrases: dict[str, str] = {}
+        for person in named:
+            name = str(person.get("name") or "").strip()
+            if name:
+                owner_phrases.update({
+                    f"最終判断者は{name}です": name,
+                    f"決裁者は{name}です": name,
+                })
+        owner_claims: set[str] = set()
+        for line in text.splitlines():
+            speaker, separator, statement = line.partition(":")
+            if not separator:
+                speaker, separator, statement = line.partition("：")
+            if not separator:
+                speaker, statement = "発言者不明", line
+            for clause in re.split(r"[。、]", statement):
+                clause = clause.strip()
+                if any(marker in clause for marker in provisional_markers):
+                    continue
+                if clause.endswith(("最終判断者は私です", "決裁者は私です", "私が最終判断します")):
+                    owner_claims.add(f"speaker:{speaker.strip()}")
+                for phrase, owner in owner_phrases.items():
+                    if clause.endswith(phrase):
+                        owner_claims.add(f"person:{owner}")
+        owner_known = len(owner_claims) == 1
+
+        def next_prerequisite_question(topic: str) -> str:
+            if not rule_known and not owner_known:
+                return f"{topic}は、誰がどのルールで決める？"
+            if not rule_known:
+                return f"{topic}に適用する決まりはどれ？"
+            if not owner_known:
+                return f"{topic}の最終判断者は誰？"
+            return "この案に、まだ未確認の条件や懸念はある？"
+
         breakfast_topic = "朝食" in text and any(
             token in text for token in ("1階", "2階", "キッチン", "会場", "B棟")
         )
         if breakfast_topic:
             target = f"@{staff[0]['name']} " if staff else ""
-            clauses = re.split(r"[。\n]", text)
-            permission_confirmed = any(
-                "搬入" in clause
-                and any(
-                    token in clause
-                    for token in ("許可している", "許可済み", "事前に許可")
+            permission_claimed = any(
+                phrase in text
+                for phrase in (
+                    "搬入場所がA棟1階キッチンである点については、事前に許可しているため認識しています",
                 )
-                and not any(
-                    token in clause
-                    for token in ("許可していない", "許可されていない", "未許可")
-                )
-                for clause in clauses
             )
-            staff_use_confirmed = any(
-                "1階" in clause
-                and "スタッフ" in clause
-                and any(
-                    token in clause
-                    for token in ("使用権限がある", "居住エリア", "スタッフ専用")
+            staff_area_claimed = any(
+                phrase in text
+                for phrase in (
+                    "A棟1階フロアはスタッフの居住エリアであり",
+                    "A棟1階キッチンはA棟1階スタッフの使用権限がある場所のため",
                 )
-                and not any(
-                    token in clause
-                    for token in ("使用権限がない", "居住エリアではない", "専用ではない")
-                )
-                for clause in clauses
             )
-            known_parts = []
-            if permission_confirmed:
-                known_parts.append("A棟1階への搬入は許可済み")
-            if staff_use_confirmed:
-                known_parts.append("1階のキッチンと家電は居住スタッフ用")
-            known = "、".join(known_parts) or "朝食会場について複数の立場があること"
+            permission_scope_claims: set[str] = set()
+            for clause in clauses:
+                if re.search(
+                    r"許可は(?:朝食を食べる)?食事?利用まで"
+                    r"(?:含む|含みます|含む許可です|含む決まりです)$",
+                    clause,
+                ):
+                    permission_scope_claims.add("included")
+                if re.search(
+                    r"許可は(?:朝食を食べる)?食事?利用まで"
+                    r"(?:含まない|含みません|対象外です)$",
+                    clause,
+                ):
+                    permission_scope_claims.add("excluded")
+            permission_scope_known = len(permission_scope_claims) == 1
+            permission_claimed = permission_claimed or bool(permission_scope_claims)
+            claims = []
+            if permission_claimed:
+                claims.append("A棟1階への搬入は事前に許可した")
+            if staff_area_claimed:
+                claims.append("A棟1階はスタッフの居住エリア")
+            known = "、".join(claims) or "朝食会場について複数の立場がある"
             question = (
                 "この搬入許可は、朝食を食べる利用まで含む決まり？"
-                if permission_confirmed
-                else "朝食会場の変更は、誰がどのルールで決める？"
+                if permission_claimed and not permission_scope_known
+                else next_prerequisite_question("朝食会場の変更")
             )
             return (
-                f"現在の会話では、{known}という前提までは確認できた。"
+                f"現在の会話には、{known}という前提候補の説明がある。"
                 f"一方で、判断に使う情報がまだ足りない。{target}{question}"
             )
         if mentions:
             return (
-                "登録データと会話を照合したけど、この案に適用する決まりと"
-                f"最終判断者がまだ分からない。{mentions} まず、誰がどのルールで決めるか教えて。"
+                "登録データと会話を照合した。"
+                f"{mentions} {next_prerequisite_question('この案')}"
             )
         return (
             "いま少し噛み合ってない気がする。"
@@ -305,13 +361,16 @@ class OpenAIProvider:
             (
                 "あなたはSlackにいる「Roomi」。議論に入る一人の仲間で、書記でも司会でもない。"
                 "短く、やさしく、はっきり話す。見出し・箇条書き・JSONは禁止。"
-                "登録済みの役割・関心と現在の発言を照合し、現在の発言で確認できた事実、"
-                "登録データと一致する前提、不一致、未確認を区別する。"
+                "登録済みの役割・関心と現在の発言を照合し、現在の発言にある主張、"
+                "登録データとの一致、不一致、未確認を区別する。"
                 "登録データの関心は過去の参考情報であり、本人の現在の合意や確定事実として扱わない。"
+                "この入力には正式な規則や許可の出典がないため、会話や登録データの内容には"
+                "『会話では』『登録データでは』と出所を付け、確認済みの事実とは断定しない。"
                 "発言ログと登録データに書かれていない事実・決まり・許可を作らない。"
                 "合意を聞く前に、判断を左右する不足を探す。優先順は、適用する決まり、決定権者、"
                 "許可の範囲、実行可能性、影響を受ける人、期限・評価基準。"
-                "不足があれば、確認できた前提を短く示してから、最重要の不明点を一つだけ問う。"
+                "不足があれば、会話や登録データにある前提候補を短く示してから、最重要の不明点を一つだけ問う。"
+                "発言ログに回答がすでにある項目は不足扱いせず、同じ質問を繰り返さない。"
                 "不足がない場合だけ、具体的な案への合意・条件・懸念を聞く。"
                 "特定の人に確認や呼びかけをするときだけ @名前 を使う。全員には付けない。"
                 "使える名前は登録済み参照データのリストだけ。リストにない名前は出さない。\n"

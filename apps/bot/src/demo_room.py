@@ -262,11 +262,14 @@ def ensure_demo_room(conn) -> None:
 
     # 事前構築: 導入時に組織全体のステークホルダーカタログを登録・ベクトル化 (RAG用)
     profile_count = conn.execute(
-        "SELECT COUNT(*) AS c FROM stakeholder_profiles"
+        "SELECT COUNT(*) AS c FROM stakeholder_profiles "
+        "WHERE source = 'demo' AND channel_id = ?",
+        (DEMO_CHANNEL_ID,),
     ).fetchone()["c"]
     if profile_count == 0 or needs_seed:
-        from ai_core import get_llm, resolve_llm_name
-        llm = get_llm(resolve_llm_name())
+        # Demo fixtures must not trigger an external embedding request on page load.
+        from ai_core import DummyLLM
+        llm = DummyLLM()
         for person in SEED_STAKEHOLDERS:
             text = f"氏名: {person['user_name']} / 役割: {person['role']} / 担当・関心: {person['interests']}"
             emb = llm.embed(text) if hasattr(llm, "embed") else None
@@ -278,6 +281,8 @@ def ensure_demo_room(conn) -> None:
                 person["interests"],
                 person.get("avatar", ""),
                 embedding=emb,
+                source="demo",
+                channel_id=DEMO_CHANNEL_ID,
             )
 
 

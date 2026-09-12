@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass, field
 
 from ai_core import (
+    DummyLLM,
     build_context,
     compose_reply,
     decide,
@@ -103,12 +104,20 @@ def evaluate_thread(
 
     ctx = build_context([dict(r) for r in rows], thread_id, channel_id)
     people = thread_people(conn, thread_id)
-    catalog = load_stakeholder_catalog(conn, llm)
+    catalog_source = "demo" if channel_id == "demo" and thread_id == "demo-live" else "slack"
+    catalog_llm = DummyLLM() if catalog_source == "demo" else llm
+    catalog = load_stakeholder_catalog(
+        conn,
+        catalog_llm,
+        source=catalog_source,
+        channel_id=channel_id,
+    )
     result = judge_intervention(
         ctx,
         llm,
         people,
         catalog=catalog,
+        catalog_llm=catalog_llm,
         bypass_readiness=force,
     )
     rules = SqliteRules(conn)

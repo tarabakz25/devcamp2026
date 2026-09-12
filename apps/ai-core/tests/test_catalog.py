@@ -114,6 +114,7 @@ class TestStakeholderCatalog(unittest.TestCase):
             {"user_id": "U-STAFF", "text": "2階を使ってください。1階はスタッフ専用です。", "is_mention": 0},
             {"user_id": "U-STUDENT", "text": "朝食の準備が大変なので1階を続けたいです。", "is_mention": 0},
             {"user_id": "U-STAFF", "text": "電気機器や炊飯器の設備管理ルールはどうしますか？", "is_mention": 0},
+            {"user_id": "U-STUDENT", "text": "安全条件が分かれば判断できます。", "is_mention": 0},
         ]
         ctx = build_context(msgs, "T-TEST", "C-TEST")
 

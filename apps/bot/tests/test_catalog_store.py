@@ -34,9 +34,14 @@ class TestCatalogStore(unittest.TestCase):
             role="施設管理",
             interests="防災、共用部利用ルール",
             embedding=emb,
+            channel_id="C-OPS",
         )
 
-        saved_emb = get_embedding(self.conn, "stakeholder", "U-TEST-1")
+        saved_emb = get_embedding(
+            self.conn,
+            "stakeholder",
+            "slack:C-OPS:U-TEST-1",
+        )
         self.assertIsNotNone(saved_emb)
         self.assertEqual(len(saved_emb), len(emb))
 
@@ -45,6 +50,74 @@ class TestCatalogStore(unittest.TestCase):
         self.assertEqual(catalog[0].name, "田中施設長")
         self.assertEqual(catalog[0].role, "施設管理")
         self.assertIsNotNone(catalog[0].embedding)
+
+    def test_catalog_source_keeps_demo_people_out_of_slack_threads(self):
+        upsert_stakeholder_profile(
+            self.conn,
+            user_id="U-DEMO",
+            name="架空の寮スタッフ",
+            role="寮スタッフ",
+            source="demo",
+            channel_id="demo",
+        )
+        upsert_stakeholder_profile(
+            self.conn,
+            user_id="UREAL123",
+            name="実Slack利用者",
+            role="施設管理",
+            channel_id="C-OPS",
+        )
+        upsert_stakeholder_profile(
+            self.conn,
+            user_id="ULEGACY123",
+            name="出所不明の旧利用者",
+            role="不明",
+        )
+
+        slack_catalog = load_stakeholder_catalog(
+            self.conn,
+            self.llm,
+            source="slack",
+            channel_id="C-OPS",
+        )
+        self.assertEqual([profile.user_id for profile in slack_catalog], ["UREAL123"])
+
+        other_channel = load_stakeholder_catalog(
+            self.conn,
+            self.llm,
+            source="slack",
+            channel_id="C-PRIVATE",
+        )
+        self.assertEqual(other_channel, [])
+
+    def test_same_slack_user_can_be_kept_per_channel(self):
+        for channel_id, interests in (
+            ("C-ONE", "設備"),
+            ("C-TWO", "採用"),
+        ):
+            upsert_stakeholder_profile(
+                self.conn,
+                user_id="UREAL123",
+                name="同じ利用者",
+                role="担当",
+                interests=interests,
+                channel_id=channel_id,
+            )
+
+        first = load_stakeholder_catalog(
+            self.conn,
+            self.llm,
+            source="slack",
+            channel_id="C-ONE",
+        )
+        second = load_stakeholder_catalog(
+            self.conn,
+            self.llm,
+            source="slack",
+            channel_id="C-TWO",
+        )
+        self.assertEqual(first[0].interests, "設備")
+        self.assertEqual(second[0].interests, "採用")
 
     def test_evaluate_thread_with_rag_missing_stakeholder(self):
         # 1. 導入時: あらかじめステークホルダーカタログを登録
@@ -57,6 +130,7 @@ class TestCatalogStore(unittest.TestCase):
             role="施設管理",
             interests="厨房機器、共用部設備、電気容量",
             embedding=emb_facility,
+            channel_id="C-TEST",
         )
 
         # 寮スタッフと学生を登録
@@ -68,6 +142,7 @@ class TestCatalogStore(unittest.TestCase):
             role="寮スタッフ",
             interests="居住エリア管理",
             embedding=emb_staff,
+            channel_id="C-TEST",
         )
         emb_student = self.llm.embed("氏名: 鈴木学生 / 役割: 学生 / 担当・関心: 朝食準備")
         upsert_stakeholder_profile(
@@ -77,6 +152,7 @@ class TestCatalogStore(unittest.TestCase):
             role="学生",
             interests="朝食準備",
             embedding=emb_student,
+            channel_id="C-TEST",
         )
 
         # 2. スレッドで議論が発生（厨房機器・共用部設備について）

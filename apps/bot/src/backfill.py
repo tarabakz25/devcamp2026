@@ -170,6 +170,7 @@ def main() -> None:
             role=role,
             interests=interests_str,
             embedding=emb,
+            channel_id=args.channel,
         )
         print(f"  [カタログ登録] {uname} ({uid}): {role} - {interests_str}")
 

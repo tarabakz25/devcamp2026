@@ -17,23 +17,6 @@ class AgentResult:
     missing_stakeholders: list[dict] = None  # type: ignore[assignment]
 
 
-DIRECTIVE_MARKERS = (
-    "してください", "使ってください", "専用", "禁止", "べき", "分けて",
-)
-RESISTANCE_MARKERS = (
-    "続けたい", "変えたくない", "反対", "納得できない", "難しい", "困る",
-)
-
-
-def _role_group(role: str) -> str:
-    normalized = (role or "").strip().lower()
-    if "スタッフ" in normalized or "運営" in normalized or "管理" in normalized:
-        return "operator"
-    if "学生" in normalized or "利用者" in normalized or "居住者" in normalized:
-        return "user"
-    return normalized
-
-
 def _human_messages(ctx: ThreadContext, people: list[dict]) -> list[dict]:
     known_people = {str(person.get("user_id") or "") for person in people}
     if not known_people:
@@ -44,50 +27,13 @@ def _human_messages(ctx: ThreadContext, people: list[dict]) -> list[dict]:
     ]
 
 
-def _has_cross_user_conflict(messages: list[dict]) -> bool:
-    directive_users: set[str] = set()
-    resistance_users: set[str] = set()
-    for message in messages:
-        user_id = str(message.get("user_id") or message.get("user") or "")
-        text = str(message.get("text") or "")
-        if any(marker in text for marker in DIRECTIVE_MARKERS):
-            directive_users.add(user_id)
-        if any(marker in text for marker in RESISTANCE_MARKERS):
-            resistance_users.add(user_id)
-    return any(left and right and left != right for left in directive_users for right in resistance_users)
-
-
 def conversation_ready(ctx: ThreadContext, people: list[dict] | None = None) -> bool:
-    """Return whether a proactive judgment has enough viewpoints to be useful."""
+    """Wait for four human turns before making an unsolicited intervention."""
     if ctx.mentions_bot:
         return True
     people = people or []
     messages = _human_messages(ctx, people)
-    if _has_cross_user_conflict(messages):
-        return True
-    if len(messages) < 3:
-        return False
-
-    speakers = {
-        str(message.get("user_id") or message.get("user") or "")
-        for message in messages
-        if message.get("user_id") or message.get("user")
-    }
-    roles_by_user = {
-        str(person.get("user_id") or ""): _role_group(str(person.get("role") or ""))
-        for person in people
-    }
-    represented_groups = {
-        roles_by_user[user_id]
-        for user_id in speakers
-        if roles_by_user.get(user_id)
-    }
-    if len(represented_groups) >= 2:
-        return True
-    # Without useful role metadata, wait for several people or a longer exchange.
-    if not represented_groups and len(speakers) >= 3:
-        return True
-    return len(messages) >= 5 and len(speakers) >= 2
+    return len(messages) >= 4
 
 
 @dataclass
@@ -113,6 +59,7 @@ def judge_intervention(
     people: list[dict] | None = None,
     *,
     catalog: list | None = None,
+    catalog_llm=None,
     bypass_readiness: bool = False,
 ) -> AgentResult:
     from .stakeholder_catalog import detect_missing_stakeholders, search_stakeholders
@@ -120,9 +67,11 @@ def judge_intervention(
     # RAG: 事前カタログからトピックに関連するステークホルダーを検索
     relevant_list: list[dict] = []
     missing_list: list[dict] = []
-    if catalog and hasattr(llm, "embed"):
+    retrieval_llm = catalog_llm or llm
+    if catalog and hasattr(retrieval_llm, "embed"):
         ranked = search_stakeholders(
-            ctx.summary, catalog, llm, participants=ctx.participants, top_k=5
+            ctx.summary, catalog, retrieval_llm,
+            participants=ctx.participants, top_k=5,
         )
         for r in ranked:
             item = {

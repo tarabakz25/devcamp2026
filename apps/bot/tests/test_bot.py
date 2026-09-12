@@ -49,19 +49,21 @@ class TestBotStore(unittest.TestCase):
              "text": "なぜ止まってるんだっけ?", "ts": "2", "thread_ts": "1"},
             {"type": "message", "channel": "C1", "user": "U3",
              "text": "担当は誰?", "ts": "3", "thread_ts": "1"},
+            {"type": "message", "channel": "C1", "user": "U1",
+             "text": "決め方はどうする?", "ts": "4", "thread_ts": "1"},
         ]:
             m = normalize_event(ev)
             assert m is not None
             q.put(m)
             save_message(conn, m)
-        self.assertEqual(len(q), 3)
+        self.assertEqual(len(q), 4)
         rows = thread_messages(conn, "C1-1")
-        self.assertEqual(len(rows), 3)
+        self.assertEqual(len(rows), 4)
         ctx = build_context([dict(r) for r in rows], "C1-1", "C1")
-        self.assertEqual(ctx.questions_open, 3)
+        self.assertEqual(ctx.questions_open, 4)
         result = judge_intervention(ctx, llm)
         d = decide(rules, "C1", "C1-1", result, now=1000.0)
-        # 3人の発言がそろった後にだけ、未解決質問として介入する
+        # 4発言がそろった後にだけ、未解決質問として介入する
         self.assertTrue(d.should_act)
         self.assertEqual(d.action, "reply")
 
