@@ -10,6 +10,7 @@ import CommunicationTopicGraph, {
 } from "../../../components/CommunicationTopicGraph";
 import type { GraphSelection } from "../../../components/CommunicationTopicGraph";
 import MaterialIcon from "../../../components/MaterialIcon";
+import AgreementPanel from "../../../components/AgreementPanel";
 import { getDiscussion } from "../../../mocks/discussions";
 import { getMember } from "../../../mocks/members";
 
@@ -38,6 +39,7 @@ export default function DiscussionDetailPage() {
   const people = discussion.participantIds
     .map((id) => getMember(id))
     .filter((member): member is NonNullable<typeof member> => Boolean(member));
+  const agreementThreadId = discussion.backendThreadId || discussion.id;
 
   return (
     <section className="roomi-page-stage discussion-detail" aria-label={discussion.title}>
@@ -83,6 +85,8 @@ export default function DiscussionDetailPage() {
           ))}
         </div>
       </header>
+
+      <AgreementPanel threadId={agreementThreadId} />
 
       <div className="discussion-detail-body">
         <div className="discussion-graph-embed">

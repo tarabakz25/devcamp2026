@@ -18,9 +18,10 @@
         "channels:read",
         "channels:join",
         "groups:history",
+        "groups:read",
         "im:history",
+        "im:write",
         "mpim:history",
-        "reactions:read",
         "users:read",
         "chat:write"
       ]
@@ -28,20 +29,20 @@
   },
   "settings": {
     "event_subscriptions": {
-      "request_url": "https://example.com/slack/events",
+      "request_url": "https://example.com/api/slack/events",
       "bot_events": [
         "app_mention",
         "message.channels",
         "message.groups",
-        "message.im",
-        "reaction_added"
+        "message.im"
       ]
     },
     "interactivity": {
-      "is_enabled": false
+      "is_enabled": true,
+      "request_url": "https://example.com/api/slack/interactivity"
     },
     "org_deploy_enabled": false,
-    "socket_mode_enabled": true,
+    "socket_mode_enabled": false,
     "token_rotation_enabled": false
   }
 }

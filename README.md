@@ -1,12 +1,13 @@
 # Roomi
 
-Slackを主戦場、WebをControl Centerにする「必要な瞬間に不足を埋めるAI」。
+Slackを主戦場、WebをControl Centerにする「意思決定に足りない合意を集めるAI」。
 
 ## 構成
 
 - `apps/ai-core/` Python: LLM抽象化・4エージェント・Context Builder・Policy Engine（Slack非依存の中核）
 - `apps/bot/` Python: Slack取込・保存・投稿・Dashboard API（ai-coreを利用）
 - `apps/web/` Next.js: Stakeholder Map / タイムライン / 介入履歴 / Memory Viewer / ルール設定
+- `apps/worker/` TypeScript: Slack Events API・合意分析・D1永続化・自律確認
 - `docker-compose.yml`: 本番用 Postgres + pgvector（ローカルMVPはSQLiteで動く）
 
 ## ローカル起動（rootから）
@@ -29,7 +30,17 @@ task dash
 task web
 ```
 
-ブラウザで [http://localhost:3000/demo](http://localhost:3000/demo) を開く。関係者を指定して発言すると、同じAIパイプラインが介入する。「実例を再生」で朝食会場スレを流し、毎発言を 0/1 で介入判定する。1 なら Roomi が入り、そのあと関係者AIが返す。チャット上の名前は架空名で、担当の対応は [http://localhost:3000/demo/cast](http://localhost:3000/demo/cast) で確認できる。`XAI_API_KEY` があれば Grok が要約・判定し、未設定なら dummy LLM で動く。
+ブラウザで [http://localhost:3000/demo](http://localhost:3000/demo) を開く。関係者を指定して発言すると、同じAIパイプラインが合意不足を分析する。「実例を再生」で朝食会場スレを流し、決めること、必要関係者、各人の立場、Roomiの次の確認を生成する。チャット上の名前は架空名で、担当の対応は [http://localhost:3000/demo/cast](http://localhost:3000/demo/cast) で確認できる。`XAI_API_KEY` があればGrokが分析し、未設定なら決定的なdummy分析で動く。
+
+## 合意形成ループ
+
+Worker版Roomiはスレッドから、決めること、現在案、決め方、責任者、必要関係者、各人の立場と根拠を抽出する。立場は `合意 / 条件付き / 懸念あり / 未確認 / 判断対象外` として提案versionごとに保存し、無回答を合意や反対に変換しない。
+
+不足があると、Roomiは次に確認すべき相手と質問を1件選ぶ。スレッド参加者にはメンション、不在者にはDMを使い、Slackボタンで回答を回収する。低確信またはセンシティブな確認は、人が送信を承認するまで実行しない。
+
+外部Slackへの自動送信は既定で無効。Workerへ `AGREEMENT_AUTO_ACTIONS=true` を設定した場合だけ有効になる。異議なし方式は5分ごとのCronで期限到達を確認し、決定通知は再送可能なoutboxとして保存する。
+
+Control Centerから実スレッドを読む場合は、WorkerとWebへ同じ `AGREEMENT_API_TOKEN` を設定し、Web側の `ROOMI_ALLOWED_USER_EMAILS` と `ROOMI_ALLOWED_THREAD_IDS` に閲覧を許可する対象を明示する。本番でこれらや `BETTER_AUTH_SECRET` が未設定なら、実スレッドのデータは返さない。
 
 ## チャット応答の評価ケース
 

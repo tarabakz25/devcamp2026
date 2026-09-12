@@ -56,7 +56,7 @@ export type GraphSelection = {
 };
 
 type SimulationNode = d3.SimulationNodeDatum &
-  CommunicationNode & {
+  Omit<CommunicationNode, "kind"> & {
     kind: "topic" | "person" | "agent";
     label: string;
   };
