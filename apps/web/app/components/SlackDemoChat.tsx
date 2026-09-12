@@ -202,7 +202,8 @@ export default function SlackDemoChat() {
       playingRef.current = false;
       return;
     }
-    const wait = Math.max(1, playback?.interval_sec || 15) * 1000;
+    const defaultWait = mode === "ai" ? 3 : 10;
+    const wait = Math.max(1, playback?.interval_sec || defaultWait) * 1000;
     const nextName = playback.next_speaker || (mode === "ai" ? "関係者" : "次の人");
     playTimer.current = window.setTimeout(() => {
       void tickPlay(nextName);
@@ -280,6 +281,9 @@ export default function SlackDemoChat() {
       return "実例の再生はここまで。この続きは手で話せるよ。";
     }
     if (playback.mode === "stopped") {
+      if (intervention?.should_act) {
+        return `${describeIntervention(intervention)} · Roomiが再介入したため再生を一時停止したよ。`;
+      }
       return "再生を止めたよ。";
     }
     return "実例を再生したよ。";
@@ -364,7 +368,10 @@ export default function SlackDemoChat() {
         kind: data.intervention?.should_act || data.playback?.mode === "ai" ? "ai" : "info",
         text: describePlayback(data.playback, data.intervention),
       });
-      if (data.playback?.mode === "script" || data.playback?.mode === "ai") {
+      const shouldContinue =
+        data.playback?.mode === "script" ||
+        (data.playback?.mode === "ai" && !data.intervention?.should_act && !data.bot_message);
+      if (shouldContinue) {
         schedulePlayTick(data.playback);
       } else {
         playingRef.current = false;
