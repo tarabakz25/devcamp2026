@@ -25,6 +25,16 @@ tasks:
     cmds:
       - "{{.VENV}} apps/bot/src/dash_server.py"
 
+  worker:
+    desc: Cloudflare Workerをローカル起動する (ローカルD1)
+    cmds:
+      - npm --prefix apps/worker run dev
+
+  worker-remote:
+    desc: Cloudflare Workerをローカル起動する (リモートCloudflare D1を使用)
+    cmds:
+      - npm --prefix apps/worker run dev:remote
+
   reload:
     desc: Dashboard APIとWebを最新コードでまとめて再起動する
     cmds:

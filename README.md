@@ -15,13 +15,15 @@ Slackを主戦場、WebをControl Centerにする「意思決定に足りない�
 実行には[Go Task](https://taskfile.dev/)が必要。
 
 ```bash
-task test     # 全テスト (ai-core + bot)
-task ai-core  # ai-core単体デモ (Slack不要)
-task demo     # BotのE2Eデモ (dry-run)
-task bot      # Slack Bot起動 (要 .env)
-task dash     # デモチャット用 Dashboard API
-task web      # Web起動 (初回は task web-install)
-task reload   # 起動中のDashboard APIとWebを止め、最新コードでまとめて再起動
+task test          # 全テスト (ai-core + bot + worker)
+task ai-core       # ai-core単体デモ (Slack不要)
+task demo          # BotのE2Eデモ (dry-run)
+task bot           # Slack Bot起動 (要 .env)
+task dash          # デモチャット用 Dashboard API (Python)
+task worker        # Cloudflare Worker起動 (ローカルD1)
+task worker-remote # Cloudflare Worker起動 (リモートCloudflare D1を使用)
+task web           # Web起動 (初回は task web-install)
+task reload        # 起動中のDashboard APIとWebを止め、最新コードでまとめて再起動
 ```
 
 実Slackを使わずにデモする場合は、`task reload` でDashboard APIとWebをまとめて起動できる。停止は `Ctrl+C`。

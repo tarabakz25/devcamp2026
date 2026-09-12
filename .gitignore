@@ -20,6 +20,10 @@ node_modules/
 out/
 dist/
 
+# Cloudflare Wrangler & TS build
+.wrangler/
+*.tsbuildinfo
+
 # OS / editor
 .DS_Store
 .idea/
