@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="TwoGate DevCampでのRoomi開発におけるAIエージェント活用サマリー">
+  <title>Roomi — AIエージェント活用サマリー</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #5f687a;
+      --paper: #f7f8fc;
+      --card: #ffffff;
+      --line: #dfe3ee;
+      --primary: #5b6cff;
+      --secondary: #45bda9;
+      --accent: #ff8f7a;
+      --deep: #303b78;
+      --soft-primary: #eef0ff;
+      --soft-secondary: #eaf8f5;
+      --soft-accent: #fff0ed;
+      --radius: 20px;
+      --shadow: 0 18px 50px rgba(42, 51, 97, .10);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 88% 5%, rgba(110,216,195,.18), transparent 24rem),
+        radial-gradient(circle at 7% 2%, rgba(91,108,255,.13), transparent 30rem),
+        var(--paper);
+      font-family: Inter, "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif;
+      line-height: 1.75;
+    }
+    a { color: var(--deep); text-underline-offset: 3px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2, h3 { letter-spacing: -.025em; line-height: 1.25; }
+    h2 { font-size: clamp(1.55rem, 3vw, 2.25rem); margin-bottom: 1rem; }
+    h3 { font-size: 1.08rem; margin-bottom: .45rem; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+    .wrap { width: min(1180px, calc(100% - 36px)); margin: 0 auto; }
+    .hero { padding: 68px 0 42px; }
+    .hero-grid { display: grid; grid-template-columns: 1.35fr .65fr; gap: 42px; align-items: end; }
+    .eyebrow { color: var(--primary); font-weight: 800; font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { font-size: clamp(3.5rem, 10vw, 7.4rem); margin: .15rem 0 .35rem; }
+    .lead { max-width: 780px; font-size: clamp(1.1rem, 2vw, 1.45rem); color: #37415a; }
+    .hero-logo { width: min(100%, 285px); justify-self: end; filter: drop-shadow(0 14px 28px rgba(42,51,97,.15)); }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+    .pill { border: 1px solid var(--line); background: rgba(255,255,255,.75); border-radius: 999px; padding: 7px 12px; font-size: .82rem; color: var(--muted); }
+    nav { position: sticky; top: 0; z-index: 5; backdrop-filter: blur(14px); background: rgba(247,248,252,.88); border-block: 1px solid rgba(223,227,238,.9); }
+    nav .wrap { display: flex; gap: 22px; overflow-x: auto; white-space: nowrap; padding-block: 12px; }
+    nav a { color: var(--muted); text-decoration: none; font-size: .84rem; font-weight: 700; }
+    section { padding: 58px 0; scroll-margin-top: 55px; }
+    .section-intro { max-width: 850px; color: var(--muted); }
+    .summary { display: grid; grid-template-columns: 1.3fr .7fr; gap: 22px; }
+    .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: clamp(22px, 4vw, 34px); box-shadow: var(--shadow); }
+    .statement { font-size: clamp(1.25rem, 2.5vw, 1.85rem); line-height: 1.55; font-weight: 720; }
+    .callout { background: var(--soft-secondary); border-color: #c9ebe4; }
+    .callout strong { color: #156c5e; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 22px; }
+    .kpi { min-height: 164px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; }
+    .kpi .num { display: block; margin: 18px 0 4px; font-size: clamp(1.7rem, 3vw, 2.55rem); line-height: 1; font-weight: 820; color: var(--deep); }
+    .kpi .label { color: var(--muted); font-size: .82rem; }
+    .kpi small { display: block; margin-top: 10px; color: var(--muted); line-height: 1.45; }
+    .bar-chart { display: grid; gap: 16px; margin-top: 28px; }
+    .bar-row { display: grid; grid-template-columns: 78px 1fr 130px; gap: 15px; align-items: center; }
+    .bar-track { height: 17px; overflow: hidden; border-radius: 999px; background: #e8ebf3; }
+    .bar { height: 100%; min-width: 4px; border-radius: inherit; background: linear-gradient(90deg, var(--primary), #8d99ff); }
+    .bar.alt { background: linear-gradient(90deg, var(--secondary), #8de0d2); }
+    .bar.hot { background: linear-gradient(90deg, var(--accent), #ffb0a1); }
+    .bar-value { text-align: right; font-variant-numeric: tabular-nums; font-size: .87rem; color: var(--muted); }
+    .timeline { border-left: 2px solid #ccd2ff; margin-left: 14px; padding-left: 30px; display: grid; gap: 28px; }
+    .time-item { position: relative; }
+    .time-item::before { content: ""; position: absolute; left: -39px; top: .42rem; width: 14px; height: 14px; border: 4px solid var(--paper); border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 2px #ccd2ff; }
+    .time-date { color: var(--primary); font-weight: 800; font-size: .83rem; }
+    .time-stats { color: var(--muted); font-size: .82rem; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+    table { width: 100%; border-collapse: collapse; min-width: 980px; }
+    th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 16px 17px; }
+    th { color: #46506a; background: #f3f5fb; font-size: .78rem; letter-spacing: .04em; }
+    td { font-size: .88rem; }
+    tbody tr:last-child td { border-bottom: 0; }
+    .score { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-weight: 750; }
+    .dots { letter-spacing: 2px; color: var(--primary); }
+    .phase-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+    .phase-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 25px; }
+    .phase-card:nth-child(7) { grid-column: 1 / -1; }
+    .tag { display: inline-block; border-radius: 999px; padding: 4px 9px; font-size: .73rem; font-weight: 800; background: var(--soft-primary); color: var(--primary); }
+    .phase-card ul, .evidence ul { padding-left: 1.2rem; margin-bottom: 0; }
+    .phase-card li + li, .evidence li + li { margin-top: .35rem; }
+    .episode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .episode { border-radius: 18px; padding: 24px; background: var(--card); border: 1px solid var(--line); }
+    .episode .index { font-size: 2.8rem; font-weight: 850; color: #d8dcff; line-height: 1; }
+    .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
+    .flow-step { position: relative; padding: 20px; border-radius: 16px; background: var(--soft-primary); font-size: .9rem; }
+    .flow-step:nth-child(2) { background: var(--soft-secondary); }
+    .flow-step:nth-child(3) { background: #f1f3f8; }
+    .flow-step:nth-child(4) { background: var(--soft-accent); }
+    .flow-step:not(:last-child)::after { content: "→"; position: absolute; right: -12px; top: 50%; transform: translateY(-50%); color: #7a8398; font-weight: 900; z-index: 1; }
+    .verdict { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .good { border-top: 5px solid var(--secondary); }
+    .next { border-top: 5px solid var(--accent); }
+    .note { color: var(--muted); font-size: .84rem; }
+    .method { display: grid; grid-template-columns: .85fr 1.15fr; gap: 18px; }
+    .source-list { font-size: .84rem; color: var(--muted); }
+    footer { padding: 38px 0 65px; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); }
+    @media (max-width: 850px) {
+      .hero-grid, .summary, .method, .verdict { grid-template-columns: 1fr; }
+      .hero-logo { display: none; }
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+      .phase-grid, .episode-grid { grid-template-columns: 1fr; }
+      .phase-card:nth-child(7) { grid-column: auto; }
+      .flow { grid-template-columns: 1fr; }
+      .flow-step:not(:last-child)::after { content: "↓"; right: 50%; top: auto; bottom: -18px; transform: translateX(50%); }
+    }
+    @media (max-width: 560px) {
+      .wrap { width: min(100% - 24px, 1180px); }
+      .hero { padding-top: 45px; }
+      .kpis { grid-template-columns: 1fr; }
+      .bar-row { grid-template-columns: 58px 1fr; }
+      .bar-value { grid-column: 2; text-align: left; }
+    }
+    @media print {
+      body { background: white; font-size: 10pt; }
+      nav { display: none; }
+      .wrap { width: 100%; }
+      .hero, section { padding: 24px 0; }
+      .panel, .kpi { box-shadow: none; break-inside: avoid; }
+      .phase-card, .episode, .time-item { break-inside: avoid; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="eyebrow">TwoGate DevCamp 2026 · AI Agent Usage Report</div>
+        <h1>Roomi</h1>
+        <p class="lead">「この意思決定を進めるために、まだ誰の何の合意が足りない？」を見つけ、必要なときだけ会話に入るAI。</p>
+        <div class="meta">
+          <span class="pill">対象期間 2026/08/17–09/12（JST）</span>
+          <span class="pill">対象 /Users/kizuki/Projects/devcamp2026</span>
+          <span class="pill">作成 2026/09/13</span>
+        </div>
+      </div>
+      <img class="hero-logo" src="brand/roomi-logo.svg" alt="Roomi logo">
+    </div>
+  </header>
+
+  <nav aria-label="レポート内ナビゲーション">
+    <div class="wrap">
+      <a href="#summary">要約</a><a href="#metrics">利用実績</a><a href="#timeline">タイムライン</a><a href="#matrix">フェーズ比較</a><a href="#details">詳細</a><a href="#episodes">代表例</a><a href="#verdict">総評</a><a href="#method">集計方法</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="summary">
+      <div class="wrap">
+        <h2>AIは「コードを書く道具」より、開発チームとして使われた</h2>
+        <div class="summary">
+          <div class="panel">
+            <p class="statement">Roomi開発では、Codex・Gemini・Grokを、課題整理、設計、実装、検証、修正、発表準備まで横断して利用。モデルを替えるだけでなく、複数セッションと役割分担を使い、観察→修正→再検証を短い周期で回していた。</p>
+            <p>人が担った中心は、問題設定、優先順位、受入水準の引き上げ、実行承認。AIはリポジトリ調査、選択肢の具体化、複数領域の実装、自動テスト、ブラウザ・実LLMを使った確認、Git/PR作業を担った。</p>
+          </div>
+          <aside class="panel callout">
+            <h3>客観評価の要点</h3>
+            <p><strong>強み:</strong> 提案で止めず、コード・テスト・画面・PRまで進める反復型の利用。</p>
+            <p><strong>注意:</strong> 8/17〜9/3は対象ディレクトリのセッション記録がなく、初期の課題探索にAIを使ったとは断定できない。本番Slackでの継続運用も未確認。</p>
+          </aside>
+        </div>
+        <div class="flow" aria-label="人とAIの分担">
+          <div class="flow-step"><strong>人</strong><br>問い・制約・違和感を示す</div>
+          <div class="flow-step"><strong>AI</strong><br>調査・設計・実装を分担</div>
+          <div class="flow-step"><strong>ツール</strong><br>テスト・画面・実LLMで確認</div>
+          <div class="flow-step"><strong>人</strong><br>結果を見て基準を引き上げる</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="metrics">
+      <div class="wrap">
+        <h2>利用実績</h2>
+        <p class="section-intro">「セッション」はユーザー起点の会話単位。「実行」はそこから起動した委譲エージェントと自動レビューも含む。時間は並列処理を足した延べエージェント処理時間で、人が画面の前にいた時間ではない。</p>
+        <div class="kpis">
+          <div class="kpi"><span class="label">全プロバイダー会話</span><span class="num">33</span><small>Codex 14・Gemini 12・Grok 7</small></div>
+          <div class="kpi"><span class="label">Codex内部実行</span><span class="num">79</span><small>主14・委譲45・自動レビュー20</small></div>
+          <div class="kpi"><span class="label">推定処理時間</span><span class="num">19.09h</span><small>3プロバイダー合計。並列重複あり</small></div>
+          <div class="kpi"><span class="label">アクティブ日数</span><span class="num">6日</span><small>9/4・7・8・10・11・12</small></div>
+          <div class="kpi"><span class="label">確認できたtoken</span><span class="num">≥739.24M</span><small>Codex + Grok。Geminiは記録なし</small></div>
+          <div class="kpi"><span class="label">確認できた新規入力</span><span class="num">≥16.51M</span><small>既知入力の2.2%。97.8%はcache</small></div>
+          <div class="kpi"><span class="label">総コスト</span><span class="num">不明</span><small>プロバイダー間で記録方式が異なる</small></div>
+          <div class="kpi"><span class="label">Git成果</span><span class="num">41</span><small>対象期間のコミット。うちfeat 21、fix 7</small></div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:18px">
+          <table>
+            <thead><tr><th>エージェント</th><th>会話</th><th>活動日</th><th>処理時間</th><th>トークン</th><th>コスト</th><th>主な担当</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Codex</strong></td><td>14<br><span class="note">実処理12</span></td><td>4日</td><td>11.90h<br><span class="note">turn duration合計</span></td><td>660.47M</td><td>実額不明<br><span class="note">API換算 $425.93+</span></td><td>評価器、合意形成ループ、実LLM検証、Pitch・動画、独立レビュー</td></tr>
+              <tr><td><strong>Gemini</strong><br><span class="note">Antigravity</span></td><td>12</td><td>3日</td><td>3.82h<br><span class="note">イベント間5分cap推定</span></td><td>不明<br><span class="note">usage記録なし</span></td><td>不明</td><td>D3 UI、Google認証、RAG/関係者事前構築、D1、複数デモ、並列修正</td></tr>
+              <tr><td><strong>Grok</strong></td><td>7<br><span class="note">実処理6</span></td><td>2日</td><td>3.37h<br><span class="note">turn開始〜終了合計</span></td><td>78.77M</td><td>全体不明<br><span class="note">1会話のみ $2.10</span></td><td>Slackなしデモ、介入ロジック、ブランド/UI、desktop/mobileブラウザ確認</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note" style="margin:14px 4px 0">トークンはCodexとGrokの記録確認分のみで、Gemini分は含まない。既知入力の97.8%は履歴・ツール結果・リポジトリ文脈のキャッシュ再利用。</p>
+      </div>
+    </section>
+
+    <section id="timeline">
+      <div class="wrap">
+        <h2>活動タイムライン</h2>
+        <p class="section-intro">対象期間は27日だが、記録上の利用は9/4以降の6日に集中。プロバイダーを横断すると、UI/Auth → デモ → 評価 → 合意形成という流れが見える。</p>
+        <div class="timeline">
+          <article class="time-item"><div class="time-date">8/17–9/3</div><h3>対象履歴なし</h3><p>このディレクトリを作業場所とするAIセッションとGitコミットは確認できなかった。課題の発見過程は記録外。</p></article>
+          <article class="time-item"><div class="time-date">9/4</div><h3>MVP確認とControl Centerの可視化</h3><p>実際のSlackに近いデモ方法を壁打ち。D3.jsの会話グラフ、状態表現、モック、デザインシステムを具体化した。</p><div class="time-stats">9実行 · 1.65h · 49.97M tokens</div></article>
+          <article class="time-item"><div class="time-date">9/7–9/8 · Codex + Gemini</div><h3>D3 UIの完成度と認証を引き上げる</h3><p>背景追従、avatar node、fullscreen、popup/sidebar、timelineを調整。Geminiが変更とbuildを進め、Google OAuth + Better Authも実装した。</p><div class="time-stats">既知token 9.08M + Gemini分不明</div></article>
+          <article class="time-item"><div class="time-date">9/10–9/11 · Grok + Codex</div><h3>Slackなしでも価値が伝わるデモへ</h3><p>Grokがステークホルダー指定、シナリオ再生、毎発言の介入判定、架空名、担当一覧、Roomi人格、専用Control Centerページを実装し、desktop/mobileで操作確認。Codexは評価器、known-gap、Pitch本文、30秒動画へ展開した。</p><div class="time-stats">Grok 78.77M + Codex 106.16M tokens（9/11分）</div></article>
+          <article class="time-item"><div class="time-date">9/12 · Codex + Gemini</div><h3>合意形成への再定義と、集中ブラッシュアップ</h3><p>「会話の詰まり検知」から「不足する合意の収集」へ価値を深掘りし、Worker/D1/Webへ実装。Geminiの複数並行セッションとCodexの委譲・レビューで、早すぎる介入、テンプレ、重複、複数トピック、接続・再生UXを反復修正した。</p><div class="time-stats">Codex 495.26M tokens + Gemini分不明</div></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="matrix">
+      <div class="wrap">
+        <h2>フェーズ別の客観評価</h2>
+        <p class="section-intro">利用深度は「AIがどこまで作業したか」、確認度は「成果をどこまで確かめたか」。自律性と品質を混同しないため、別々に4段階で評価した。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>フェーズ</th><th>AIの役割</th><th>人の役割</th><th>代表成果</th><th>利用深度</th><th>確認度</th><th>評価上の限界</th></tr></thead>
+            <tbody>
+              <tr><td><strong>課題の壁打ち</strong></td><td>既存実装の限界を整理し、合意形成への強化案を提示</td><td>「誰の何の合意が足りないか」を主題として再設定</td><td>合意形成ループの方向性</td><td><span class="score"><span class="dots">●●○○</span>2/4</span></td><td><span class="score"><span class="dots">●●○○</span>2/4</span></td><td>初期27日のうち前半18日は履歴なし</td></tr>
+              <tr><td><strong>要求分析・定義</strong></td><td>コードと会話から制約・安全条件・受入観点を抽出</td><td>自動送信、実行タイミング、データ参照の期待を修正</td><td>無回答の扱い、人承認、allowlist、既定OFF</td><td><span class="score"><span class="dots">●●●○</span>3/4</span></td><td><span class="score"><span class="dots">●●○○</span>2/4</span></td><td>要求ID・優先順位・追跡表はない</td></tr>
+              <tr><td><strong>仕様設計</strong></td><td>Python/Worker/Webの責務、データモデル、Policyを設計</td><td>TS統合、比較方式、既知弱点の残し方を選択</td><td>version付き合意、outbox、Cron、評価器</td><td><span class="score"><span class="dots">●●●●</span>4/4</span></td><td><span class="score"><span class="dots">●●●○</span>3/4</span></td><td>Python版とWorker版に判定差が残る</td></tr>
+              <tr><td><strong>実装</strong></td><td>複数アプリを横断して変更、委譲、レビュー、Git/PR化</td><td>実行許可、技術選択、成果の受入・差し戻し</td><td>合意収集、D1、D3、OAuth、デモ、RAG</td><td><span class="score"><span class="dots">●●●●</span>4/4</span></td><td><span class="score"><span class="dots">●●●○</span>3/4</span></td><td>9/12に25コミットが集中</td></tr>
+              <tr><td><strong>テスト</strong></td><td>単体/E2E/型検査、ケース評価、ブラウザ・実LLM確認</td><td>dummy検証を退け、反復回数と実環境水準を要求</td><td>77 named tests、baseline/known-gap、21 LLM calls</td><td><span class="score"><span class="dots">●●●●</span>4/4</span></td><td><span class="score"><span class="dots">●●●○</span>3/4</span></td><td>本番Slackでの継続E2Eは未確認</td></tr>
+              <tr><td><strong>フィードバック修正</strong></td><td>画面・ログ・挙動から原因を追い、修正と再確認</td><td>早すぎる介入、テンプレ、重複など具体的違和感を提示</td><td>再介入、3トピック、typing、failover、再生停止</td><td><span class="score"><span class="dots">●●●●</span>4/4</span></td><td><span class="score"><span class="dots">●●●○</span>3/4</span></td><td>初回検証が受入水準に届かない場面あり</td></tr>
+              <tr><td><strong>その他</strong></td><td>プロダクト説明、Pitch本文編集、動画制作、運用タスク</td><td>既存ブランド尊重、公開範囲、文面と見た目を確認</td><td>紹介文、30秒動画、スクリーンショット、Taskfile</td><td><span class="score"><span class="dots">●●●○</span>3/4</span></td><td><span class="score"><span class="dots">●●●○</span>3/4</span></td><td>外部公開・視聴者評価は対象外</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="details">
+      <div class="wrap">
+        <h2>各フェーズで、どう使っていたか</h2>
+        <div class="phase-grid">
+          <article class="phase-card"><span class="tag">DISCOVERY</span><h3>課題の壁打ち</h3><p>9/12、人が「今は会話の停滞検知に寄りすぎている」と問題を言語化。Codexは合意形成機能案を構造化し、Geminiでは複数agent/RAGや関係者抽出タイミングを問い直した。</p><p class="note">評価: 問いを実装可能な構造へ変換できた。一方、課題仮説やユーザー調査の文書はない。</p></article>
+          <article class="phase-card"><span class="tag">REQUIREMENTS</span><h3>要求分析・要求定義</h3><p>AIが安全性と挙動を要求へ落とした。無回答を賛否に変えない、提案変更時に古い立場を継承しない、低確信・センシティブな送信は人が承認、外部Slack自動送信は既定OFFなど。</p><p class="note">評価: 暗黙の期待をコード上の制約にできた。要求とテストの対応表があると再現性はさらに上がる。</p></article>
+          <article class="phase-card"><span class="tag">DESIGN</span><h3>仕様設計</h3><p>AI Core、Slack Bot、Cloudflare Worker/D1、Next.js Control Centerの責務を整理。Policy、合意version、監査、outbox、Cron、認証境界、デザインシステムまで設計した。</p><p class="note">評価: 実装・運用・安全を同時に扱えた。二系統の判定実装は技術的負債として残る。</p></article>
+          <article class="phase-card"><span class="tag">BUILD</span><h3>実装</h3><p>Codexは探索・実装・レビューを役割分担。GeminiはWeb/Auth/AI Core/D1を並行実装。Grokはデモ、介入ロジック、UIを長時間セッションで一気通貫した。</p><p class="note">評価: Codexだけでも65/79実行が委譲または自動レビュー。並列化は強いが、Geminiのmaster直接反映やGrokの大きな複合commitは統合・レビューリスクも増やした。</p></article>
+          <article class="phase-card"><span class="tag">VERIFY</span><h3>テスト</h3><p>Codexはbaseline/known-gapと実LLM反復、Geminiはbuild・HTTP・実Slack read-only・Cloudflare、Grokは単体テストとdesktop/mobile操作を担当。検証経路を複数持った。</p><p class="note">評価: 弱点を測定可能に残した点が良い。一方、Geminiの最終2会話では404・重複を検出したまま完了証拠がなく、履歴時点では未解決として扱う。</p></article>
+          <article class="phase-card"><span class="tag">ITERATE</span><h3>フィードバックからの修正</h3><p>スクリーンショットや動作結果を見ながら、早すぎる応答、テンプレ文、同じ再介入、トピック切替、Service Worker、typing表示などを修正。重複問題では実LLMを3回・計21呼び出しまで増やし、重複0を確認した。</p><p class="note">評価: 人が受入水準を引き上げ、AIが検証方法を更新する協働が明確。</p></article>
+          <article class="phase-card"><span class="tag">COMMUNICATE</span><h3>その他：説明・発表・運用</h3><p>AIはリポジトリからプロダクト概要を説明し、DevCamp Pitchの紹介文を作成・保存。既存ロゴ、フォント、UIを使った30秒動画を作り、見た目のフィードバックにも対応。安全な一括再起動タスクも整備した。</p><p class="note">評価: 開発成果を「動くもの」から「他者に伝わるもの」へ変換する用途まで広げている。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="episodes">
+      <div class="wrap">
+        <h2>AI活用がよく表れている3つの場面</h2>
+        <div class="episode-grid">
+          <article class="episode"><div class="index">01</div><h3>AIの提案を、人がプロダクトの問いへ戻した</h3><p>「詰まった会話を検知する」実装に対し、人が「不足する合意を集める」が本質だと指摘。AIは既存構造を調査し、合意状態・関係者・質問・承認・outboxまで含む実装計画へ変えた。</p></article>
+          <article class="episode"><div class="index">02</div><h3>失敗するテストを、消さずに資産化した</h3><p>ユーザーの依頼で、現行ロジックが通らないケースも追加。mandatoryなbaselineとは分けてknown-gapとして残し、将来の改善が本当に弱点を埋めたか測れるようにした。</p></article>
+          <article class="episode"><div class="index">03</div><h3>「テスト済み」の境界を人が正した</h3><p>dummyによる確認に対し、人が実LLMを要求。さらに重複検出には試行不足と指摘し、AIが複数回の実行へ切り替えた。エージェント任せではなく、受入条件を人が管理した例。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="verdict">
+      <div class="wrap">
+        <h2>総合評価</h2>
+        <div class="verdict">
+          <article class="panel good"><h3>効果的だった点</h3><ul><li>曖昧な違和感を、データモデル・Policy・テストへ変換した</li><li>探索、実装、レビューを分け、複数領域を短期間で横断した</li><li>previewと実行を分離し、自動送信を既定OFFにした</li><li>正常系だけでなく既知弱点を評価資産として残した</li><li>コードだけでなくデモ、Pitch、動画、運用まで一貫して支援した</li></ul></article>
+          <article class="panel next"><h3>改善できる点</h3><ul><li>課題仮説、要求ID、設計判断、フィードバック元を文書でつなぐ</li><li>最終日に集中する前に、本番相当E2Eの時間を確保する</li><li>最初から「実LLM」「試行回数」「見える結果」を受入条件に書く</li><li>Python版とWorker版の判定差を解消するか、役割を明確に分ける</li><li>実Slackで誤介入率・合意までの時間・利用者評価を継続計測する</li></ul></article>
+        </div>
+        <div class="panel" style="margin-top:18px">
+          <p class="statement" style="margin-bottom:0">総じて、AIエージェントは実装量を増やすだけでなく、プロダクトの問いをコード、評価、デモへつなぐ役割を担った。質を支えたのは、人が違和感を明示し、検証境界を繰り返し厳しくしたことだった。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="method">
+      <div class="wrap">
+        <h2>集計方法とコストの読み方</h2>
+        <div class="method">
+          <div class="panel evidence">
+            <h3>抽出条件</h3>
+            <ul>
+              <li>JST 2026/8/17 00:00〜9/12 23:59</li>
+              <li>Codex: <code>session_meta.cwd</code>、Gemini: <code>workspace_uris</code>、Grok: 保存ディレクトリが対象path</li>
+              <li>Codexは親、委譲、自動レビューを実行IDで重複排除</li>
+              <li>時間はCodex/Grokのturn時間。Geminiだけイベント間隔5分capによる推定</li>
+              <li>tokenは呼出単位で重複排除。Geminiはusage未記録のため欠損</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>コスト</h3>
+            <p><strong>3プロバイダー合計の実請求額は算出不可。</strong> Geminiにはtoken/cost記録がなく、Grokは実作業6会話中1件だけcostが残る。Codexも契約内利用の按分額と内部 <code>codex-auto-review</code> 単価を持たない。</p>
+            <p>Codexの参考値 <strong>$425.93+</strong> は、Sol/Lunaを標準API単価で換算し、272K超の割増を適用した値。Grokは記録がある1会話だけ<strong>$2.10</strong>で、全体額ではない。性質が違うため両者を合算していない。</p>
+            <p class="note">OpenAI公式の標準API単価（$/1M tokens）: Sol = input 4.00 / cached 0.40 / output 20.00、Luna = 0.20 / 0.02 / 1.20。Codexクレジットは契約のincluded usage消費後に使われ、購入価格は契約に依存する。</p>
+          </div>
+        </div>
+
+        <div class="panel source-list" style="margin-top:18px">
+          <h3>根拠と制約</h3>
+          <p>主な内部根拠: Codex session JSONL、Gemini Antigravityのconversation DB/history/transcript、Grokのsummary/events/chat/usage、Git履歴、README、DESIGN.md、Taskfile、各アプリの実装とテスト。生ログには個人情報や秘密が含まれうるため、本文は匿名化した集計と成果だけを載せた。</p>
+          <p>外部単価: <a href="https://developers.openai.com/api/docs/models/gpt-5.6-sol">OpenAI · GPT-5.6 Sol</a> / <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">OpenAI · GPT-5.6 Luna</a> / <a href="https://developers.openai.com/codex/pricing">OpenAI · Codex pricing</a></p>
+          <p>確認度4は本番・実サービスで利用者に見える結果まで確認した場合。本レポートでは、Pitch本文保存など一部を除き、プロダクトの本番継続運用は確認度3以下として扱った。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer><div class="wrap">Roomi AI Agent Usage Report · TwoGate DevCamp 2026 · 個人情報・秘密情報・プロンプト全文は掲載していない</div></footer>
+</body>
+</html>
