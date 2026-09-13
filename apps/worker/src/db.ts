@@ -1,5 +1,5 @@
 // D1 data layer. Mirrors apps/bot/src/{store,dashboard,demo_room}.py queries.
-import { SCENARIO_MESSAGES, SEED_STAKEHOLDERS } from "./seed";
+import { getScenario, SCENARIOS } from "./seed";
 import {
   AgentAction,
   AgentActionStatus,
@@ -113,23 +113,38 @@ export interface KnownStakeholder {
   lastSeenAt: string;
 }
 
-export function demoIds(env: Env) {
+export async function getCurrentScenarioId(db: D1Database, threadId: string): Promise<string> {
+  const row = await db
+    .prepare("SELECT summary FROM threads WHERE id = ?")
+    .bind(threadId)
+    .first<{ summary: string }>();
+  if (row?.summary && row.summary in SCENARIOS) {
+    return row.summary;
+  }
+  return "breakfast";
+}
+
+export function demoIds(env: Env, scenarioId?: string | null) {
+  const scenario = getScenario(scenarioId);
   const channel = env.DEMO_CHANNEL_ID || "demo";
   const ts = env.DEMO_THREAD_TS || "live";
   return {
     channel,
     ts,
     threadId: `${channel}-${ts}`,
-    name: env.DEMO_CHANNEL_NAME || "03_rooms_discussion",
-    title: env.DEMO_TITLE || "朝食会場を決めよう",
+    name: scenario.channel_name || env.DEMO_CHANNEL_NAME || "03_rooms_discussion",
+    title: scenario.title || env.DEMO_TITLE || "朝食会場を決めよう",
+    description: scenario.description || "",
+    scenarioId: scenario.id,
   };
 }
 
-export async function ensureRoom(db: D1Database, ids: ReturnType<typeof demoIds>) {
+export async function ensureRoom(db: D1Database, ids: ReturnType<typeof demoIds>, scenarioId?: string | null) {
+  const scenario = getScenario(scenarioId || ids.scenarioId);
   await db
     .batch([
       db.prepare("INSERT INTO channels (id, name) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name").bind(ids.channel, ids.name),
-      db.prepare("INSERT OR IGNORE INTO threads (id, channel_id) VALUES (?, ?)").bind(ids.threadId, ids.channel),
+      db.prepare("INSERT INTO threads (id, channel_id, summary) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET channel_id=excluded.channel_id, summary=excluded.summary").bind(ids.threadId, ids.channel, scenario.id),
       db.prepare("INSERT INTO users (id, name, role) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name").bind(ROOMI_USER_ID, ROOMI_NAME, "AI"),
       db.prepare(
         "INSERT INTO intervention_rules (channel_id, min_confidence, min_impact, cooldown_sec, enabled) " +
@@ -146,7 +161,7 @@ export async function ensureRoom(db: D1Database, ids: ReturnType<typeof demoIds>
     .bind(ids.threadId)
     .first<{ c: number }>();
   if (!count || count.c === 0) {
-    const stmts = SEED_STAKEHOLDERS.map((p) =>
+    const stmts = scenario.stakeholders.map((p) =>
       db
         .prepare(
           "INSERT OR IGNORE INTO stakeholders (thread_id, user_id, user_name, role, interests, avatar, message_count) VALUES (?, ?, ?, ?, ?, ?, 0)",
@@ -155,6 +170,38 @@ export async function ensureRoom(db: D1Database, ids: ReturnType<typeof demoIds>
     );
     await db.batch(stmts);
   }
+}
+
+export async function switchDemoScenario(db: D1Database, ids: ReturnType<typeof demoIds>, scenarioId: string): Promise<void> {
+  const scenario = SCENARIOS[scenarioId];
+  if (!scenario) throw new Error(`未知のシナリオ: ${scenarioId}`);
+
+  await db.batch([
+    db.prepare("INSERT INTO channels (id, name) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name").bind(ids.channel, scenario.channel_name),
+    db.prepare("INSERT INTO threads (id, channel_id, summary) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET channel_id=excluded.channel_id, summary=excluded.summary").bind(ids.threadId, ids.channel, scenario.id),
+    db.prepare("INSERT INTO users (id, name, role) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role").bind(ROOMI_USER_ID, ROOMI_NAME, "AI"),
+    db.prepare(
+      "INSERT INTO intervention_rules (channel_id, min_confidence, min_impact, cooldown_sec, enabled) " +
+        "SELECT ?, 0.7, 0.7, 600, 1 WHERE NOT EXISTS (SELECT 1 FROM intervention_rules)",
+    ).bind("*"),
+    db.prepare(
+      "INSERT INTO intervention_rules (channel_id, min_confidence, min_impact, cooldown_sec, enabled) " +
+        "SELECT ?, 0.55, 0.5, 0, 1 WHERE NOT EXISTS (SELECT 1 FROM intervention_rules WHERE channel_id = ?)",
+    ).bind(ids.channel, ids.channel),
+    db.prepare("DELETE FROM messages WHERE thread_id = ?").bind(ids.threadId),
+    db.prepare("DELETE FROM interventions WHERE thread_id = ?").bind(ids.threadId),
+    db.prepare("DELETE FROM relations WHERE thread_id = ?").bind(ids.threadId),
+    db.prepare("DELETE FROM decision_items WHERE thread_id = ?").bind(ids.threadId),
+    db.prepare("DELETE FROM stakeholders WHERE thread_id = ?").bind(ids.threadId),
+    db.prepare("DELETE FROM demo_playback WHERE thread_id = ?").bind(ids.threadId),
+    ...scenario.stakeholders.map((person) =>
+      db
+        .prepare(
+          "INSERT INTO stakeholders (thread_id, user_id, user_name, role, interests, avatar, message_count) VALUES (?, ?, ?, ?, ?, ?, 0)",
+        )
+        .bind(ids.threadId, person.user_id, person.user_name, person.role, person.interests, person.avatar || ""),
+    ),
+  ]);
 }
 
 export async function listStakeholders(db: D1Database, threadId: string): Promise<Row[]> {
@@ -615,7 +662,8 @@ export async function saveAgreementSnapshot(
     db
       .prepare(
         "UPDATE agent_actions SET status='cancelled', updated_at=? " +
-          "WHERE decision_id=? AND (proposal_version<>? OR snapshot_token<>?) AND status='queued' " +
+          "WHERE decision_id=? AND (proposal_version<>? OR " +
+            "(snapshot_token<>? AND (external_message_id IS NULL OR external_message_id=''))) AND status='queued' " +
           "AND action_type NOT IN ('announce_decision','approve_decision') " +
           "AND EXISTS (SELECT 1 FROM decision_items WHERE id=? AND snapshot_token=?)",
       )
@@ -955,7 +1003,9 @@ export async function listAudit(db: D1Database, threadId: string, limit = 20) {
   return rows.results || [];
 }
 
-export async function playbackView(db: D1Database, threadId: string) {
+export async function playbackView(db: D1Database, threadId: string, scenarioId?: string | null) {
+  const sid = scenarioId || await getCurrentScenarioId(db, threadId);
+  const scenario = getScenario(sid);
   const row = await db
     .prepare("SELECT mode, idx, ai_count, last_intervene, last_reason FROM demo_playback WHERE thread_id = ?")
     .bind(threadId)
@@ -963,37 +1013,51 @@ export async function playbackView(db: D1Database, threadId: string) {
   const mode = row?.mode || "idle";
   const idx = row?.idx || 0;
   let nextSpeaker: string | null = null;
-  if (mode === "script" && idx < SCENARIO_MESSAGES.length) {
+  const msgs = scenario.messages;
+  if (mode === "script" && idx < msgs.length) {
     const s = await db
       .prepare("SELECT user_name FROM stakeholders WHERE thread_id = ? AND user_id = ?")
-      .bind(threadId, SCENARIO_MESSAGES[idx].user_id)
+      .bind(threadId, msgs[idx].user_id)
       .first<{ user_name: string }>();
-    nextSpeaker = s?.user_name || SCENARIO_MESSAGES[idx].user_id;
+    nextSpeaker = s?.user_name || msgs[idx].user_id;
+  } else if (mode === "ai") {
+    const people = (await listStakeholders(db, threadId))
+      .filter((person) => String(person["user_id"]) !== ROOMI_USER_ID);
+    nextSpeaker = people[row?.ai_count || 0]?.["user_name"] ? String(people[row?.ai_count || 0]["user_name"]) : null;
   }
   return {
     mode,
     index: idx,
-    total: SCENARIO_MESSAGES.length,
+    total: msgs.length,
     ai_count: row?.ai_count || 0,
-    interval_sec: 10,
+    interval_sec: mode === "ai" ? 3 : 10,
     next_speaker: nextSpeaker,
     intervene: row?.last_intervene || 0,
     reason: row?.last_reason || "",
   };
 }
 
-export async function roomState(db: D1Database, ids: ReturnType<typeof demoIds>, llm: string) {
-  await ensureRoom(db, ids);
+export async function roomState(db: D1Database, ids: ReturnType<typeof demoIds>, llm: string, scenarioId?: string | null) {
+  const sid = scenarioId || ids.scenarioId || await getCurrentScenarioId(db, ids.threadId);
+  const scenario = getScenario(sid);
+  await ensureRoom(db, ids, scenario.id);
   const agreements = await getThreadAgreementView(db, ids.threadId);
   return {
-    channel: { id: ids.channel, name: ids.name },
+    channel: { id: ids.channel, name: scenario.channel_name || ids.name },
     thread_id: ids.threadId,
-    title: ids.title,
+    title: scenario.title || ids.title,
+    description: scenario.description || ids.description || "",
+    current_scenario: scenario.id,
+    scenarios: Object.values(SCENARIOS).map((s) => ({
+      id: s.id,
+      title: s.title,
+      description: s.description,
+    })),
     llm,
     stakeholders: await listStakeholders(db, ids.threadId),
     messages: await listMessages(db, ids.threadId),
     audit: await listAudit(db, ids.threadId),
-    playback: await playbackView(db, ids.threadId),
+    playback: await playbackView(db, ids.threadId, scenario.id),
     agreements,
   };
 }

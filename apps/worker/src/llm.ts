@@ -107,6 +107,30 @@ export function stakeholderReply(name: string, role: string, interests: string):
   return `${name}としては、${focus}を優先して決めたいです。`;
 }
 
+export async function stakeholderLine(
+  env: LlmEnv,
+  provider: string,
+  history: string,
+  person: { name: string; role: string; interests: string },
+): Promise<string> {
+  const fallback = stakeholderReply(person.name, person.role, person.interests);
+  if (provider !== "xai" && provider !== "openai" && provider !== "openai-compatible") return fallback;
+  try {
+    const out = await chatCompletions(
+      env,
+      provider,
+      `あなたはSlack上の関係者「${person.name}」として返信する。` +
+        `役割は「${person.role || "関係者"}」、関心は「${person.interests || "現在の論点"}」。` +
+        "会話履歴を踏まえ、自分の立場から具体的に1〜3文の自然な日本語で返す。" +
+        "Roomiの口調を真似せず、自己紹介や定型のまとめを繰り返さない。JSON・箇条書き・見出しは禁止。",
+      `最近の会話履歴:\n${history.slice(-7000)}\n\n${person.name}としての返信:`,
+    );
+    return out.trim().slice(0, 800) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function resolveLlmName(env: LlmEnv): string {
   const name = (env.LLM_PROVIDER || "").trim();
   if (name) return name;

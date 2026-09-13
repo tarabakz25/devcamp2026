@@ -10,6 +10,7 @@ import {
   demoIds,
   ensureRoom,
   Env,
+  getCurrentScenarioId,
   getDecision,
   getDecisionView,
   getThreadAgreementView,
@@ -27,6 +28,7 @@ import {
   Row,
   saveAgentAction,
   saveAgreementSnapshot,
+  switchDemoScenario,
   timeline,
   updateAgentActionStatus,
   upsertDecision,
@@ -48,10 +50,10 @@ import {
   needsIntervention,
   resolveLlmName,
   roomiLine,
-  stakeholderReply,
+  stakeholderLine,
 } from "./llm";
 import { decideScoreIntervention, TopicKind } from "./communication-score";
-import { SCENARIO_MESSAGES } from "./seed";
+import { getScenario, SCENARIOS } from "./seed";
 import {
   escapeSlackText,
   getConversationMembers,
@@ -67,6 +69,12 @@ app.use("/*", cors({ origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
 
 function llmName(env: Env): string {
   return resolveLlmName(env);
+}
+
+function scenarioFromRequest(value: unknown, fallback: string): string | null {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value !== "string" || !SCENARIOS[value]) return null;
+  return value;
 }
 
 type RoomIds = ReturnType<typeof demoIds>;
@@ -93,6 +101,11 @@ function sameDecisionTopic(left: string, right: string): boolean {
   const rightGrams = topicBigrams(b);
   const common = [...leftGrams].filter((gram) => rightGrams.has(gram)).length;
   return common / Math.max(1, Math.min(leftGrams.size, rightGrams.size)) >= 0.34;
+}
+
+function sameDecisionAnalysis(decision: DecisionItem, analysis: AgreementAnalysis): boolean {
+  return sameDecisionTopic(decision.decisionText, analysis.decision.title) ||
+    Boolean(decision.proposal && analysis.decision.proposal && sameDecisionTopic(decision.proposal, analysis.decision.proposal));
 }
 
 function stableTopicId(value: string): string {
@@ -282,7 +295,7 @@ async function maybeIntervene(
     recentDecision?.proposal || "",
   );
   let previous = existingDecisions.find((decision) =>
-    sameDecisionTopic(decision.decisionText, analysis.decision.title),
+    sameDecisionAnalysis(decision, analysis),
   ) || null;
   if (previous && recentDecision && previous.id !== recentDecision.id) {
     analysis = await analyzeAgreement(
@@ -293,7 +306,7 @@ async function maybeIntervene(
       previous.proposal,
     );
     previous = existingDecisions.find((decision) =>
-      sameDecisionTopic(decision.decisionText, analysis.decision.title),
+      sameDecisionAnalysis(decision, analysis),
     ) || null;
   }
   if (!analysis.is_decision && !shouldSpeak) {
@@ -534,7 +547,7 @@ async function maybeIntervene(
     ? null
     : selectNextAgreementAction(snapshot, snapshot.participants, snapshot.gaps);
   const hasOutstandingAction = candidateAction && snapshot.actions.some((existing) =>
-    existing.status === "sent" &&
+    (existing.status === "sent" || (existing.status === "queued" && Boolean(existing.externalMessageId))) &&
     existing.proposalVersion === candidateAction.proposalVersion &&
     existing.participantUserId === candidateAction.participantUserId &&
     existing.kind === candidateAction.kind,
@@ -572,6 +585,15 @@ async function maybeIntervene(
       : `${targetLabel} 「${snapshot.decisionText}」について、${saved.action.question}`;
     if (source === "demo" && shouldSpeak) {
       bot = await saveMessage(db, ids, ROOMI_USER_ID, text);
+      // The demo has no Slack dispatcher, so mark the rendered message as sent
+      // here. Keeping it queued makes the next human message cancel it during
+      // snapshot refresh and creates the same confirmation again.
+      if (savedAction) {
+        const botMessageId = String(bot.id);
+        const deliveredAction = await updateAgentActionStatus(db, savedAction.id, "sent", botMessageId);
+        savedAction = deliveredAction || { ...savedAction, status: "sent", externalMessageId: botMessageId };
+        action = savedAction;
+      }
     }
   } else if (snapshot.status === "ready" && stateSatisfied && !safeToFinalize) {
     const approvalAlreadyQueued = snapshot.actions.some(
@@ -655,8 +677,9 @@ app.get("/api/audit", async (c) => {
 });
 
 app.get("/api/demo", async (c) => {
-  const ids = demoIds(c.env);
-  return c.json(await roomState(c.env.DB, ids, llmName(c.env)));
+  const sid = await getCurrentScenarioId(c.env.DB, "demo-live");
+  const ids = demoIds(c.env, sid);
+  return c.json(await roomState(c.env.DB, ids, llmName(c.env), sid));
 });
 
 app.post("/api/demo/messages", async (c) => {
@@ -665,22 +688,26 @@ app.post("/api/demo/messages", async (c) => {
   const text = String(body.text || "").trim();
   if (!text) return c.json({ detail: "メッセージが空" }, 400);
   if (userId === ROOMI_USER_ID) return c.json({ detail: "Roomiとしては発言できない" }, 400);
-  const ids = demoIds(c.env);
+  const sid = await getCurrentScenarioId(c.env.DB, "demo-live");
+  const scenario = getScenario(sid);
+  const ids = demoIds(c.env, sid);
   const provider = llmName(c.env);
-  await ensureRoom(c.env.DB, ids);
+  await ensureRoom(c.env.DB, ids, sid);
   const message = await saveMessage(c.env.DB, ids, userId, text);
   const { intervention, bot_message } = await maybeIntervene(c.env.DB, c.env, ids, provider);
   return c.json({
     message,
     bot_message,
     intervention,
-    channel: { id: ids.channel, name: ids.name },
-    title: ids.title,
+    channel: { id: ids.channel, name: scenario.channel_name || ids.name },
+    title: scenario.title || ids.title,
+    description: scenario.description || "",
+    current_scenario: scenario.id,
     thread_id: ids.threadId,
     messages: await listMessages(c.env.DB, ids.threadId),
     audit: await listAudit(c.env.DB, ids.threadId),
     stakeholders: await listStakeholders(c.env.DB, ids.threadId),
-    playback: await playbackView(c.env.DB, ids.threadId),
+    playback: await playbackView(c.env.DB, ids.threadId, sid),
     agreements: await getThreadAgreementView(c.env.DB, ids.threadId),
   });
 });
@@ -689,8 +716,9 @@ app.post("/api/demo/stakeholders", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { name?: string; role?: string; interests?: string; avatar?: string };
   const name = String(body.name || "").trim();
   if (!name) return c.json({ detail: "名前が必要" }, 400);
-  const ids = demoIds(c.env);
-  await ensureRoom(c.env.DB, ids);
+  const sid = await getCurrentScenarioId(c.env.DB, "demo-live");
+  const ids = demoIds(c.env, sid);
+  await ensureRoom(c.env.DB, ids, sid);
   const userId = `U-${Date.now().toString(36).toUpperCase()}`;
   await c.env.DB.prepare(
     "INSERT INTO stakeholders (thread_id, user_id, user_name, role, interests, avatar, message_count) VALUES (?, ?, ?, ?, ?, ?, 0)",
@@ -701,7 +729,8 @@ app.post("/api/demo/stakeholders", async (c) => {
 });
 
 app.delete("/api/demo/stakeholders/:userId", async (c) => {
-  const ids = demoIds(c.env);
+  const sid = await getCurrentScenarioId(c.env.DB, "demo-live");
+  const ids = demoIds(c.env, sid);
   const r = await c.env.DB.prepare("DELETE FROM stakeholders WHERE thread_id = ? AND user_id = ?")
     .bind(ids.threadId, c.req.param("userId"))
     .run();
@@ -710,121 +739,198 @@ app.delete("/api/demo/stakeholders/:userId", async (c) => {
 });
 
 app.post("/api/demo/intervene", async (c) => {
-  const ids = demoIds(c.env);
+  const sid = await getCurrentScenarioId(c.env.DB, "demo-live");
+  const scenario = getScenario(sid);
+  const ids = demoIds(c.env, sid);
   const provider = llmName(c.env);
-  await ensureRoom(c.env.DB, ids);
+  await ensureRoom(c.env.DB, ids, sid);
   const { intervention, bot_message } = await maybeIntervene(c.env.DB, c.env, ids, provider, true);
   return c.json({
     message: null,
     bot_message,
     intervention,
-    channel: { id: ids.channel, name: ids.name },
-    title: ids.title,
+    channel: { id: ids.channel, name: scenario.channel_name || ids.name },
+    title: scenario.title || ids.title,
+    description: scenario.description || "",
+    current_scenario: scenario.id,
     thread_id: ids.threadId,
     messages: await listMessages(c.env.DB, ids.threadId),
     audit: await listAudit(c.env.DB, ids.threadId),
     stakeholders: await listStakeholders(c.env.DB, ids.threadId),
-    playback: await playbackView(c.env.DB, ids.threadId),
+    playback: await playbackView(c.env.DB, ids.threadId, sid),
     agreements: await getThreadAgreementView(c.env.DB, ids.threadId),
   });
 });
 
 app.post("/api/demo/scenario", async (c) => {
-  const ids = demoIds(c.env);
-  const provider = llmName(c.env);
-  await ensureRoom(c.env.DB, ids);
-  for (const m of SCENARIO_MESSAGES) {
-    await saveMessage(c.env.DB, ids, m.user_id, m.text);
-  }
-  const { intervention, bot_message } = await maybeIntervene(c.env.DB, c.env, ids, provider, true);
-  return c.json({ ok: true, loaded: SCENARIO_MESSAGES.length, intervention, bot_message, agreements: await getThreadAgreementView(c.env.DB, ids.threadId) });
+  const body = (await c.req.json().catch(() => ({}))) as { scenario_id?: string };
+  const scenarioId = scenarioFromRequest(body.scenario_id, "breakfast");
+  if (!scenarioId) return c.json({ detail: "未知のシナリオ" }, 400);
+  const scenario = SCENARIOS[scenarioId];
+  const ids = demoIds(c.env, scenario.id);
+  await switchDemoScenario(c.env.DB, ids, scenario.id);
+  return c.json(await roomState(c.env.DB, ids, llmName(c.env), scenario.id));
 });
 
 app.post("/api/demo/play/start", async (c) => {
-  const ids = demoIds(c.env);
-  await ensureRoom(c.env.DB, ids);
+  const body = (await c.req.json().catch(() => ({}))) as { scenario_id?: string };
+  const current = await getCurrentScenarioId(c.env.DB, "demo-live");
+  const sid = scenarioFromRequest(body.scenario_id, current);
+  if (!sid) return c.json({ detail: "未知のシナリオ" }, 400);
+  const scenario = SCENARIOS[sid];
+  const ids = demoIds(c.env, scenario.id);
+  await switchDemoScenario(c.env.DB, ids, scenario.id);
   await c.env.DB.prepare(
     "INSERT INTO demo_playback (thread_id, mode, idx, ai_count, updated_at) VALUES (?, 'script', 0, 0, datetime('now')) " +
       "ON CONFLICT(thread_id) DO UPDATE SET mode='script', idx=0, updated_at=datetime('now')",
   )
     .bind(ids.threadId)
     .run();
-  return c.json(await roomState(c.env.DB, ids, llmName(c.env)));
+  return c.json(await roomState(c.env.DB, ids, llmName(c.env), scenario.id));
 });
 
 app.post("/api/demo/play/tick", async (c) => {
-  const ids = demoIds(c.env);
+  const sid = await getCurrentScenarioId(c.env.DB, "demo-live");
+  const scenario = getScenario(sid);
+  const ids = demoIds(c.env, scenario.id);
   const provider = llmName(c.env);
-  await ensureRoom(c.env.DB, ids);
+  await ensureRoom(c.env.DB, ids, scenario.id);
   const cur = await c.env.DB.prepare("SELECT mode, idx, ai_count FROM demo_playback WHERE thread_id = ?")
     .bind(ids.threadId)
     .first<{ mode: string; idx: number; ai_count: number }>();
-  if (!cur || cur.mode !== "script") return c.json({ detail: "再生中じゃない" }, 400);
-  if (cur.idx >= SCENARIO_MESSAGES.length) {
+  if (!cur) return c.json({ detail: "再生中じゃない" }, 400);
+  if (cur.mode === "ai") {
+    const people = (await listStakeholders(c.env.DB, ids.threadId))
+      .filter((person) => String(person["user_id"]) !== ROOMI_USER_ID);
+    const person = people[cur.ai_count];
+    if (!person) {
+      await c.env.DB.prepare("UPDATE demo_playback SET mode='script', ai_count=0, updated_at=datetime('now') WHERE thread_id = ?")
+        .bind(ids.threadId)
+        .run();
+      return c.json(await roomState(c.env.DB, ids, provider, scenario.id));
+    }
+    const history = (await listMessages(c.env.DB, ids.threadId))
+      .slice(-40)
+      .map((message) => `${String(message["user_name"] || message["user_id"])}: ${String(message["text"] || "")}`)
+      .join("\n");
+    const text = await stakeholderLine(c.env, provider, history, {
+      name: String(person["user_name"] || person["user_id"]),
+      role: String(person["role"] || ""),
+      interests: String(person["interests"] || ""),
+    });
+    const message = await saveMessage(c.env.DB, ids, String(person["user_id"]), text);
+    const nextAiCount = cur.ai_count + 1;
+    const nextMode = nextAiCount < people.length ? "ai" : "script";
+    await c.env.DB.prepare(
+      "UPDATE demo_playback SET mode=?, ai_count=?, updated_at=datetime('now') WHERE thread_id = ?",
+    )
+      .bind(nextMode, nextAiCount, ids.threadId)
+      .run();
+    return c.json({
+      message,
+      bot_message: null,
+      intervention: {
+        should_act: false,
+        intervene: 0,
+        action: "silent",
+        reason: "ステークホルダーAIの返信",
+        confidence: 1,
+        impact: 0,
+        summary: "",
+        text: "",
+      },
+      channel: { id: ids.channel, name: scenario.channel_name || ids.name },
+      title: scenario.title || ids.title,
+      description: scenario.description || "",
+      current_scenario: scenario.id,
+      thread_id: ids.threadId,
+      messages: await listMessages(c.env.DB, ids.threadId),
+      audit: await listAudit(c.env.DB, ids.threadId),
+      stakeholders: await listStakeholders(c.env.DB, ids.threadId),
+      playback: await playbackView(c.env.DB, ids.threadId, scenario.id),
+      agreements: await getThreadAgreementView(c.env.DB, ids.threadId),
+    });
+  }
+  if (cur.mode !== "script") return c.json({ detail: "再生中じゃない" }, 400);
+  const msgs = scenario.messages;
+  if (cur.idx >= msgs.length) {
     await c.env.DB.prepare("UPDATE demo_playback SET mode='done', updated_at=datetime('now') WHERE thread_id = ?")
       .bind(ids.threadId)
       .run();
-    return c.json(await roomState(c.env.DB, ids, provider));
+    return c.json(await roomState(c.env.DB, ids, provider, scenario.id));
   }
-  const next = SCENARIO_MESSAGES[cur.idx];
+  const next = msgs[cur.idx];
   const message = await saveMessage(c.env.DB, ids, next.user_id, next.text);
   const { intervention, bot_message } = await maybeIntervene(c.env.DB, c.env, ids, provider);
-  await c.env.DB.prepare("UPDATE demo_playback SET idx=idx+1, last_intervene=?, last_reason=?, updated_at=datetime('now') WHERE thread_id = ?")
-    .bind(intervention["intervene"] ? 1 : 0, String(intervention["reason"] || ""), ids.threadId)
+  await c.env.DB.prepare(
+    "UPDATE demo_playback SET mode=?, idx=idx+1, ai_count=?, last_intervene=?, last_reason=?, updated_at=datetime('now') WHERE thread_id = ?",
+  )
+    .bind(bot_message ? "ai" : "script", bot_message ? 0 : 0, intervention["intervene"] ? 1 : 0, String(intervention["reason"] || ""), ids.threadId)
     .run();
-  // AI replies from other stakeholders after Roomi (simplified demo playback)
-  if (bot_message) {
-    const people = await listStakeholders(c.env.DB, ids.threadId);
-    const others = people.filter((p) => String(p["user_id"]) !== next.user_id && String(p["user_id"]) !== ROOMI_USER_ID).slice(0, 1);
-    for (const p of others) {
-      await saveMessage(
-        c.env.DB,
-        ids,
-        String(p["user_id"]),
-        stakeholderReply(String(p["user_name"]), String(p["role"] || ""), String(p["interests"] || "")),
-      );
-    }
-  }
   return c.json({
     message,
     bot_message,
     intervention,
+    channel: { id: ids.channel, name: scenario.channel_name || ids.name },
+    title: scenario.title || ids.title,
+    description: scenario.description || "",
+    current_scenario: scenario.id,
+    thread_id: ids.threadId,
     messages: await listMessages(c.env.DB, ids.threadId),
     audit: await listAudit(c.env.DB, ids.threadId),
     stakeholders: await listStakeholders(c.env.DB, ids.threadId),
-    playback: await playbackView(c.env.DB, ids.threadId),
+    playback: await playbackView(c.env.DB, ids.threadId, scenario.id),
     agreements: await getThreadAgreementView(c.env.DB, ids.threadId),
   });
 });
 
 app.post("/api/demo/play/stop", async (c) => {
-  const ids = demoIds(c.env);
+  const sid = await getCurrentScenarioId(c.env.DB, "demo-live");
+  const ids = demoIds(c.env, sid);
   await c.env.DB.prepare(
     "INSERT INTO demo_playback (thread_id, mode, updated_at) VALUES (?, 'stopped', datetime('now')) " +
       "ON CONFLICT(thread_id) DO UPDATE SET mode='stopped', updated_at=datetime('now')",
   )
     .bind(ids.threadId)
     .run();
-  return c.json(await roomState(c.env.DB, ids, llmName(c.env)));
+  return c.json(await roomState(c.env.DB, ids, llmName(c.env), sid));
 });
 
 app.post("/api/demo/reset", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { keep_stakeholders?: boolean };
   const keep = body.keep_stakeholders ?? true;
-  const ids = demoIds(c.env);
-  await ensureRoom(c.env.DB, ids);
+  const sid = await getCurrentScenarioId(c.env.DB, "demo-live");
+  const scenario = getScenario(sid);
+  const ids = demoIds(c.env, sid);
+  await ensureRoom(c.env.DB, ids, sid);
   await c.env.DB.prepare("DELETE FROM messages WHERE thread_id = ?").bind(ids.threadId).run();
   await c.env.DB.prepare("DELETE FROM interventions WHERE thread_id = ?").bind(ids.threadId).run();
   await c.env.DB.prepare("DELETE FROM decision_items WHERE thread_id = ?").bind(ids.threadId).run();
   if (!keep) {
     await c.env.DB.prepare("DELETE FROM stakeholders WHERE thread_id = ?").bind(ids.threadId).run();
+    const insertStmts = scenario.stakeholders.map((p) =>
+      c.env.DB.prepare(
+        "INSERT OR IGNORE INTO stakeholders (thread_id, user_id, user_name, role, interests, avatar, message_count) VALUES (?, ?, ?, ?, ?, ?, 0)",
+      ).bind(ids.threadId, p.user_id, p.user_name, p.role, p.interests, p.avatar || "")
+    );
+    if (insertStmts.length > 0) {
+      await c.env.DB.batch(insertStmts);
+    }
   }
   await c.env.DB.prepare("DELETE FROM demo_playback WHERE thread_id = ?").bind(ids.threadId).run();
-  return c.json(await roomState(c.env.DB, ids, llmName(c.env)));
+  return c.json(await roomState(c.env.DB, ids, llmName(c.env), sid));
 });
 
 function slackRoomIds(channel: string, rootTs: string): RoomIds {
-  return { channel, ts: rootTs, threadId: `${channel}-${rootTs}`, name: channel, title: "Slack上の意思決定" };
+  return {
+    channel,
+    ts: rootTs,
+    threadId: `${channel}-${rootTs}`,
+    name: channel,
+    title: "Slack上の意思決定",
+    description: "",
+    scenarioId: "slack",
+  };
 }
 
 async function ensureSlackRoom(db: D1Database, ids: RoomIds): Promise<void> {
