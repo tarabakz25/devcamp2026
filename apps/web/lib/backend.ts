@@ -4,13 +4,17 @@
  * 優先順位:
  * 1. 環境変数 WORKER_URL (未設定時はリモート Cloudflare Worker)
  * 2. 環境変数 DASHBOARD_URL (設定されている場合のみ)
- * 3. デフォルト: Cloudflare 本番 Worker (https://roomi-worker.aikikizuki.workers.dev)
+ * 3. 開発時のデフォルト: ローカル Worker (http://localhost:8787)
+ * 4. 本番時のデフォルト: Cloudflare 本番 Worker
  */
 
 export const REMOTE_WORKER_URL = "https://roomi-worker.aikikizuki.workers.dev";
+export const LOCAL_WORKER_URL = "http://localhost:8787";
 
 export function getBackendUrl(): string {
-  return (process.env.WORKER_URL || process.env.DASHBOARD_URL || REMOTE_WORKER_URL).replace(/\/$/, "");
+  const configured = process.env.WORKER_URL || process.env.DASHBOARD_URL;
+  const fallback = process.env.NODE_ENV === "production" ? REMOTE_WORKER_URL : LOCAL_WORKER_URL;
+  return (configured || fallback).replace(/\/$/, "");
 }
 
 /**
