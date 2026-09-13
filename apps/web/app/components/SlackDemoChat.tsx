@@ -96,6 +96,31 @@ function formatTypingText(names: string[]): string {
   return `${uniqueNames.join("、")} が入力中...`;
 }
 
+function normalizeDisplayedMessage(text: string): string {
+  return text.normalize("NFKC").replace(/\s+/g, " ").trim();
+}
+
+function displayedMessageKey(message: ChatMessage): string {
+  const text = normalizeDisplayedMessage(message.text);
+  if (message.is_bot && message.user_id === "U-ROOMI") {
+    // Older Worker data may contain the same owner question with an LLM-generated
+    // topic title that changed between interventions. Treat that title as
+    // presentation text so the demo does not show the same action repeatedly.
+    return `roomi:${text.replace(/(Roomiの確認候補:\s*)「[^」]*」/, "$1「同一論点」")}`;
+  }
+  return `message:${message.id}`;
+}
+
+function uniqueDisplayedMessages(messages: ChatMessage[]): ChatMessage[] {
+  const seen = new Set<string>();
+  return messages.filter((message) => {
+    const key = displayedMessageKey(message);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function readApi(path: string, init?: RequestInit) {
   const response = await fetch(path, {
     ...init,
@@ -129,6 +154,8 @@ export default function SlackDemoChat() {
   const playTimer = useRef<number | null>(null);
   const typingTimer = useRef<number | null>(null);
   const playingRef = useRef(false);
+  const busyRef = useRef(false);
+  const tickInFlightRef = useRef(false);
 
   function addTypingUser(name: string) {
     if (!name) return;
@@ -270,9 +297,13 @@ export default function SlackDemoChat() {
 
   async function sendMessage(event?: FormEvent) {
     event?.preventDefault();
-    if (!speaker || sending) return;
+    if (!speaker || sending || busyRef.current) return;
+    busyRef.current = true;
     const text = draft.trim();
-    if (!text) return;
+    if (!text) {
+      busyRef.current = false;
+      return;
+    }
     setSending(true);
     setThinking(true);
     setDraft("");
@@ -316,6 +347,7 @@ export default function SlackDemoChat() {
       setBanner({ kind: "error", text: err.message });
       await refresh().catch(() => {});
     } finally {
+      busyRef.current = false;
       setSending(false);
       setThinking(false);
       clearTyping();
@@ -324,7 +356,8 @@ export default function SlackDemoChat() {
   }
 
   async function intervene() {
-    if (thinking) return;
+    if (thinking || busyRef.current) return;
+    busyRef.current = true;
     setThinking(true);
     setTypingOnly("Roomi");
     try {
@@ -340,6 +373,7 @@ export default function SlackDemoChat() {
     } catch (err: any) {
       setBanner({ kind: "error", text: err.message });
     } finally {
+      busyRef.current = false;
       setThinking(false);
       clearTyping();
     }
@@ -395,6 +429,8 @@ export default function SlackDemoChat() {
   }
 
   async function startPlay() {
+    if (busyRef.current) return;
+    busyRef.current = true;
     clearAllTimers();
     clearTyping();
     playingRef.current = true;
@@ -436,12 +472,14 @@ export default function SlackDemoChat() {
       clearTyping();
       setBanner({ kind: "error", text: err.message });
     } finally {
+      busyRef.current = false;
       setThinking(false);
     }
   }
 
   async function tickPlay(speakerName: string) {
-    if (!playingRef.current) return;
+    if (!playingRef.current || tickInFlightRef.current) return;
+    tickInFlightRef.current = true;
     clearTypingTimer();
     setThinking(true);
     addTypingUser(speakerName);
@@ -481,9 +519,7 @@ export default function SlackDemoChat() {
         text: describePlayback(data.playback, data.intervention),
       });
 
-      const shouldContinue =
-        data.playback?.mode === "script" ||
-        (data.playback?.mode === "ai" && !data.intervention?.should_act && !data.bot_message);
+      const shouldContinue = data.playback?.mode === "script" || data.playback?.mode === "ai";
       if (shouldContinue) {
         schedulePlayTick(data.playback);
       } else {
@@ -497,6 +533,7 @@ export default function SlackDemoChat() {
       clearTyping();
       setBanner({ kind: "error", text: err.message });
     } finally {
+      tickInFlightRef.current = false;
       setThinking(false);
     }
   }
@@ -578,7 +615,7 @@ export default function SlackDemoChat() {
     }
   }
 
-  const messages = room?.messages || [];
+  const messages = uniqueDisplayedMessages(room?.messages || []);
   const people = room?.stakeholders || [];
   const isPlaying = room?.playback?.mode === "script" || room?.playback?.mode === "ai";
 
